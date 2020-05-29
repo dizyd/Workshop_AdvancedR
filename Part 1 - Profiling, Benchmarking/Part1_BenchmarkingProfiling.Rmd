@@ -1,0 +1,473 @@
+---
+title: "Advanced R"
+subtitle: "Writing Faster R Code"
+author: "David Izydorczyk"
+date: "12.05.2020"
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: ["default", "default-fonts","subfiles/my-theme.css","subfiles/my-fonts.css","xaringan-themer.css"]
+    nature:
+      highlightStyle: github
+      ratio: "16:9"
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE, message = FALSE, warning=FALSE}
+options(htmltools.dir.version = FALSE)
+library(tidyverse)
+library(tictoc)
+library(microbenchmark)
+library(benchmarkme)
+library(bench)
+library(data.table)
+library(kableExtra)
+```
+
+
+
+
+## Workshop
+
+This workshop consists of three parts:
+
+1. Benchmarking &  Profiling
+2. Introduction to Vectorization & the Power of C++ with Rcpp
+3. Introduction to Parallelization
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Learning Goals
+
+At the end of this workshop, you should ...
+
+- know how to measure the speed of your R Code and find potential bottelnecks
+
+- know how to solve those bottlenecks through vectorized `R` code, Rcpp, or parallelization
+
+
+
+<!-- *********** HEADING ************** -->
+---
+class: heading,middle
+
+
+Part 1: Benchmarking &  Profiling
+
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Think about your hardware
+
+- As you will see throughout this workshop, optimizing your R Code can be (will be) very time consuming
+
+- An easy way to improve the speed of your code, is having up-to-date hardware
+
+- Q: How can do you know if your computer is up-to-date ?
+
+- A: The `benchmarkme`- package 
+
+<!-- *********** NEW SLIDE ************** -->
+---
+class: small
+## benchmarkme - package 
+
+.pull-left[
+
+
+The [`benchmarkme`](https://github.com/csgillespie/benchmarkme) - package allows you to run a set of standardized benchmarks and compare your results to other users. 
+
+```{r eval = FALSE}
+library(benchmarkme)
+
+## Number of Cores
+get_cpu()
+
+## Number of RAM
+get_ram()
+
+## Acess the speed of some functions,
+## i.e. numerical operations such as loops
+## and matrix operations) ...
+bench_std <- benchmark_std(runs = 1)
+
+##  ... reading of files
+bench_file <- benchmark_io(runs = 1, size = 5)
+
+## Compare with others
+plot(bench_std)
+plot(bench_file)
+
+## Upload your results (if you want)
+upload_results(bench_std)
+upload_results(bench_file)
+```
+] 
+.pull-right[
+
+Example from my computer: 
+.center[
+<img src="images/example_bench1.png", width="75%">
+
+<img src="images/example_bench2.png", width="75%">
+]
+
+]
+
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Benchmarking 
+
+We will look at four functions for benchmarking your R Code:
+
+- `system.time()`
+- `tic()`and `toc()`
+- `bench()`
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+class:small
+## system.time()
+
+`system.time()` returns the time taken to evaluate/run any R expression
+
+.pull-left[
+Either for single statements
+
+```{r}
+system.time(sqrt(1:1e7))
+```
+
+
+Or entire bits of code
+
+
+```{r}
+system.time({ #<<
+  
+  mat1 <- matrix(rep(1:100,1e6),ncol=500)
+  mat2 <- matrix(rep(1:100,1e6),ncol=500)
+ 
+  mat1 * mat2
+  
+})#<<
+```
+]
+.pull-right[
+- **User**: gives the CPU time spent by the current process (i.e., the current R session)
+
+- **System**: gives the CPU time spent by the the operating system on behalf of the current process (e.g., opening files, doing input or output, starting other processes, and looking at the system clock).
+
+- **Elapsed**: "Wall clock time" 
+
+```{r}
+system.time(
+  Sys.sleep(10) #10 seconds
+  )
+```
+]
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+class:small
+## tic() - toc()
+
+- A more convinient way than `system.time()` are the functions `tic()`and `toc()`  from the `tictoc`-package
+
+.pull-left[
+Again you can measure single statements
+
+```{r}
+library(tictoc)
+
+tic()#<<
+
+a <- sqrt(1:1e7)
+
+toc()#<<
+
+```
+
+
+or entire bits of code
+
+
+```{r}
+tic()
+  
+  for(i in 1:1000000){
+    j = i / 2 
+    z = sqrt(j)
+  }
+  
+toc()
+```
+]
+
+.pull-right[
+
+You can also make nested expressions
+
+
+```{r}
+
+tic("Everything")
+
+  tic("Make Matrix")
+  mat <- matrix(1:1e6,ncol=1000)
+  toc()
+    
+  tic("calculate sums")
+  rowsums <- rowSums(mat)
+  colsums <- colSums(mat)
+  toc()
+  
+toc()
+
+```
+
+]
+
+<!-- *********** NEW SLIDE ************** -->
+---
+class:small
+## Comparing functions with bench::mark()
+
+.pull-left[
+
+Comparing different functions with `tictoc`or `system.time()` can be annyoing
+
+
+```{r}
+m <- matrix(5,nrow=1e4,ncol=1e4)
+
+tic("rowsums")
+ x <- rowSums(m)
+toc()
+
+tic("colsums")
+ x <-  colSums(m)
+toc()
+
+```
+
+]
+.pull-right[
+
+Especially if you want to run both functions several times to get a more accurate estimate of the timing.
+
+
+```{r}
+tic("rowsums")
+ x <-replicate(10, rowSums(m))
+toc()
+
+
+tic("colsums")
+ x <-replicate(10,colSums(m))
+toc()
+```
+
+]
+
+
+
+
+
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+class:small
+## Comparing functions with bench::mark()
+
+The answer: Use the [`bench::mark()`](https://github.com/r-lib/bench)  (or `microbenchmark`)
+
+- More accurate than `system.time()` and `tictoc()`
+- Allows to make easy comparisons between functions
+- Allows to specify number of iterations
+- Also reports memory (!! `bench::mark()` > `microbenchmark`)
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Comparing functions with bench::mark()
+
+Example: Lets compare four ways to compute the rowmeans of a large data.frame
+
+.pull-left[
+
+```{r}
+fun_classic <- function(m) {
+  rowSums(m)/ncol(m)
+}
+
+fun_rowmeans <- function(m) {
+  rowMeans(m)
+}
+```
+
+]
+.pull-right[
+```{r}
+
+fun_apply   <- function(m) { 
+  apply(m,1,mean)
+}
+
+
+fun_for     <- function(m) {
+  
+  y <- c()
+  
+  for(i in 1:nrow(m)){
+    x    <- m[i,] %>% unlist() 
+    y[i] <- mean(x)
+  }
+   y
+}
+
+```
+]
+
+
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Comparing functions with bench::mark()
+
+```{r}
+library(bench)
+
+m <- matrix(5,nrow=1e3,ncol=1e3)
+
+res <- bench::mark(
+  fun_classic(m),
+  fun_rowmeans(m),
+  fun_apply(m),
+  fun_for(m)
+)
+  
+```
+
+Results:
+
+```{r}
+res[,1:8] %>% kable(.,format="markdown")
+```
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Comparing functions with bench::mark()
+
+There are also plots:
+
+
+```{r eval=FALSE}
+library(ggplot2)
+
+autoplot(res)+
+  theme_bw()
+
+#ggsave("images/example_bench.png",units="cm",dpi=300,height=10,width=20,device="png")
+```
+
+.center[
+
+<img src="images/example_bench.png", width="75%">
+
+
+]
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Comparing functions with bench::mark()
+
+You can adjust the number of iterations etc.:
+
+```{r eval=FALSE}
+res <- bench::mark(
+  fun_classic(m),
+  fun_rowmeans(m),
+  fun_apply(m),
+  fun_for(m),
+  min_time = 0.5,  #<<
+  iterations = NULL, #<<
+  min_iterations = 1, #<<
+  max_iterations = 10000 #<<
+)
+
+```
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Comparing functions with bench::mark()
+
+Beware of the `check` argument if you have random elements:
+
+For example try this: 
+
+```{r eval=FALSE}
+
+res <- bench::mark(
+  "mean1" = function(){x <- rnorm(1e7); mean(x)},
+  "mean2" = function(){x <- rnorm(1e7); sum(x)/100},
+  "mean3" = function(){x <- rnorm(1e7); mean.default(x)}
+)
+
+```
+
+Better:
+
+```{r eval=FALSE}
+
+res <- bench::mark(
+  "mean1" = function(){x <- rnorm(1e7); mean(x)},
+  "mean2" = function(){x <- rnorm(1e7); sum(x)/100},
+  "mean3" = function(){x <- rnorm(1e7); mean.default(x)},
+  check = FALSE #<<
+)
+
+
+```
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Comparing functions with bench::mark()
+
+You want to compare your functions for different parameters ? `bench::press()` !
+
+```{r}
+
+```
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Memory
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Your turn !
+
+
+- Reading in data (small and large)
+- List into df (see benchmarking.R)
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Helpful references:
+
+- https://bookdown.org/yihui/rmarkdown
+
+

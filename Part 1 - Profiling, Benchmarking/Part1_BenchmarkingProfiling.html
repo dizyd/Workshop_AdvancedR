@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Advanced R</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="David Izydorczyk" />
+    <link href="libs/remark-css/default.css" rel="stylesheet" />
+    <link href="libs/remark-css/default-fonts.css" rel="stylesheet" />
+    <link rel="stylesheet" href="subfiles\my-theme.css" type="text/css" />
+    <link rel="stylesheet" href="subfiles\my-fonts.css" type="text/css" />
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# Advanced R
+## Writing Faster R Code
+### David Izydorczyk
+### 12.05.2020
+
+---
+
+
+
+
+
+
+
+## Workshop
+
+This workshop consists of three parts:
+
+1. Benchmarking &amp;  Profiling
+2. Introduction to Vectorization &amp; the Power of C++ with Rcpp
+3. Introduction to Parallelization
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Learning Goals
+
+At the end of this workshop, you should ...
+
+- know how to measure the speed of your R Code and find potential bottelnecks
+
+- know how to solve those bottlenecks through vectorized `R` code, Rcpp, or parallelization
+
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+class: heading,middle
+
+
+Part 1: Benchmarking &amp;  Profiling
+
+
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Think about your hardware
+
+- As you will see throughout this workshop, optimizing your R Code can be (will be) very time consuming
+
+- An easy way to improve the speed of your code, is having up-to-date hardware
+
+- Q: How can do you know if your computer is up-to-date ?
+
+- A: The `benchmarkme`- package 
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+class: small
+## benchmarkme - package 
+
+.pull-left[
+
+
+The [`benchmarkme`](https://github.com/csgillespie/benchmarkme) - package allows you to run a set of standardized benchmarks and compare your results to other users. 
+
+
+```r
+library(benchmarkme)
+
+## Number of Cores
+get_cpu()
+
+## Number of RAM
+get_ram()
+
+## Acess the speed of some functions,
+## i.e. numerical operations such as loops
+## and matrix operations) ...
+bench_std &lt;- benchmark_std(runs = 1)
+
+##  ... reading of files
+bench_file &lt;- benchmark_io(runs = 1, size = 5)
+
+## Compare with others
+plot(bench_std)
+plot(bench_file)
+
+## Upload your results (if you want)
+upload_results(bench_std)
+upload_results(bench_file)
+```
+] 
+.pull-right[
+
+Example from my computer: 
+.center[
+&lt;img src="images/example_bench1.png", width="75%"&gt;
+
+&lt;img src="images/example_bench2.png", width="75%"&gt;
+]
+
+]
+
+
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Benchmarking 
+
+We will look at four functions for benchmarking your R Code:
+
+- `system.time()`
+- `tic()`and `toc()`
+- `bench()`
+
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+class:small
+## system.time()
+
+`system.time()` returns the time taken to evaluate/run any R expression
+
+.pull-left[
+Either for single statements
+
+
+```r
+system.time(sqrt(1:1e7))
+```
+
+```
+##    user  system elapsed 
+##    0.26    0.02    0.28
+```
+
+
+Or entire bits of code
+
+
+
+```r
+*system.time({
+  
+  mat1 &lt;- matrix(rep(1:100,1e6),ncol=500)
+  mat2 &lt;- matrix(rep(1:100,1e6),ncol=500)
+ 
+  mat1 * mat2
+  
+*})
+```
+
+```
+##    user  system elapsed 
+##    1.92    0.19    2.11
+```
+]
+.pull-right[
+- **User**: gives the CPU time spent by the current process (i.e., the current R session)
+
+- **System**: gives the CPU time spent by the the operating system on behalf of the current process (e.g., opening files, doing input or output, starting other processes, and looking at the system clock).
+
+- **Elapsed**: "Wall clock time" 
+
+
+```r
+system.time(
+  Sys.sleep(10) #10 seconds
+  )
+```
+
+```
+##    user  system elapsed 
+##       0       0      10
+```
+]
+
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+class:small
+## tic() - toc()
+
+- A more convinient way than `system.time()` are the functions `tic()`and `toc()`  from the `tictoc`-package
+
+.pull-left[
+Again you can measure single statements
+
+
+```r
+library(tictoc)
+
+*tic()
+
+a &lt;- sqrt(1:1e7)
+
+*toc()
+```
+
+```
+## 0.08 sec elapsed
+```
+
+
+or entire bits of code
+
+
+
+```r
+tic()
+  
+  for(i in 1:1000000){
+    j = i / 2 
+    z = sqrt(j)
+  }
+  
+toc()
+```
+
+```
+## 0.11 sec elapsed
+```
+]
+
+.pull-right[
+
+You can also make nested expressions
+
+
+
+```r
+tic("Everything")
+
+  tic("Make Matrix")
+  mat &lt;- matrix(1:1e6,ncol=1000)
+  toc()
+```
+
+```
+## Make Matrix: 0 sec elapsed
+```
+
+```r
+  tic("calculate sums")
+  rowsums &lt;- rowSums(mat)
+  colsums &lt;- colSums(mat)
+  toc()
+```
+
+```
+## calculate sums: 0 sec elapsed
+```
+
+```r
+toc()
+```
+
+```
+## Everything: 0 sec elapsed
+```
+
+]
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+class:small
+## Comparing functions with bench::mark()
+
+.pull-left[
+
+Comparing different functions with `tictoc`or `system.time()` can be annyoing
+
+
+
+```r
+m &lt;- matrix(5,nrow=1e4,ncol=1e4)
+
+tic("rowsums")
+ x &lt;- rowSums(m)
+toc()
+```
+
+```
+## rowsums: 0.2 sec elapsed
+```
+
+```r
+tic("colsums")
+ x &lt;-  colSums(m)
+toc()
+```
+
+```
+## colsums: 0.11 sec elapsed
+```
+
+]
+.pull-right[
+
+Especially if you want to run both functions several times to get a more accurate estimate of the timing.
+
+
+
+```r
+tic("rowsums")
+ x &lt;-replicate(10, rowSums(m))
+toc()
+```
+
+```
+## rowsums: 1.98 sec elapsed
+```
+
+```r
+tic("colsums")
+ x &lt;-replicate(10,colSums(m))
+toc()
+```
+
+```
+## colsums: 0.94 sec elapsed
+```
+
+]
+
+
+
+
+
+
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+class:small
+## Comparing functions with bench::mark()
+
+The answer: Use the [`bench::mark()`](https://github.com/r-lib/bench)  (or `microbenchmark`)
+
+- More accurate than `system.time()` and `tictoc()`
+- Allows to make easy comparisons between functions
+- Allows to specify number of iterations
+- Also reports memory (!! `bench::mark()` &gt; `microbenchmark`)
+
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Comparing functions with bench::mark()
+
+Example: Lets compare four ways to compute the rowmeans of a large data.frame
+
+.pull-left[
+
+
+```r
+fun_classic &lt;- function(m) {
+  rowSums(m)/ncol(m)
+}
+
+fun_rowmeans &lt;- function(m) {
+  rowMeans(m)
+}
+```
+
+]
+.pull-right[
+
+```r
+fun_apply   &lt;- function(m) { 
+  apply(m,1,mean)
+}
+
+
+fun_for     &lt;- function(m) {
+  
+  y &lt;- c()
+  
+  for(i in 1:nrow(m)){
+    x    &lt;- m[i,] %&gt;% unlist() 
+    y[i] &lt;- mean(x)
+  }
+   y
+}
+```
+]
+
+
+
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Comparing functions with bench::mark()
+
+
+```r
+library(bench)
+
+m &lt;- matrix(5,nrow=1e3,ncol=1e3)
+
+res &lt;- bench::mark(
+  fun_classic(m),
+  fun_rowmeans(m),
+  fun_apply(m),
+  fun_for(m)
+)
+```
+
+Results:
+
+
+```r
+res[,1:8] %&gt;% kable(.,format="markdown")
+```
+
+
+
+|expression      |     min|  median|   itr/sec| mem_alloc|    gc/sec| n_itr| n_gc|
+|:---------------|-------:|-------:|---------:|---------:|---------:|-----:|----:|
+|fun_classic(m)  |  2.01ms|  2.08ms| 471.75987|   15.72KB|  0.000000|   236|    0|
+|fun_rowmeans(m) |  1.95ms|  2.05ms| 475.99562|    7.86KB|  0.000000|   238|    0|
+|fun_apply(m)    | 12.42ms| 18.21ms|  57.82032|   19.21MB|  2.065012|    28|    1|
+|fun_for(m)      | 81.87ms| 84.43ms|  11.80264|   12.02MB| 11.802641|     3|    3|
+
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Comparing functions with bench::mark()
+
+There are also plots:
+
+
+
+```r
+library(ggplot2)
+
+autoplot(res)+
+  theme_bw()
+
+#ggsave("images/example_bench.png",units="cm",dpi=300,height=10,width=20,device="png")
+```
+
+.center[
+
+&lt;img src="images/example_bench.png", width="75%"&gt;
+
+
+]
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Comparing functions with bench::mark()
+
+You can adjust the number of iterations etc.:
+
+
+```r
+res &lt;- bench::mark(
+  fun_classic(m),
+  fun_rowmeans(m),
+  fun_apply(m),
+  fun_for(m),
+* min_time = 0.5,
+* iterations = NULL,
+* min_iterations = 1,
+* max_iterations = 10000
+)
+```
+
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Comparing functions with bench::mark()
+
+Beware of the `check` argument if you have random elements:
+
+For example try this: 
+
+
+```r
+res &lt;- bench::mark(
+  "mean2" = function(){x &lt;- rnorm(1e5); mean(x)},
+  "mean3" = function(){x &lt;- rnorm(1e5); sum(x)/100},
+  "mean3" = function(){x &lt;- rnorm(1e5); mean.default(x)}
+)
+```
+
+Better:
+
+
+```r
+res &lt;- bench::mark(
+  "mean1" = function(){x &lt;- rnorm(1e7); mean(x)},
+  "mean2" = function(){x &lt;- rnorm(1e7); sum(x)/100},
+  "mean3" = function(){x &lt;- rnorm(1e7); mean.default(x)},
+* check = FALSE
+)
+
+res[,1:8] %&gt;% kable(.,format="markdown")
+```
+
+
+
+|expression                                               | min| median|  itr/sec| mem_alloc| gc/sec| n_itr| n_gc|
+|:--------------------------------------------------------|---:|------:|--------:|---------:|------:|-----:|----:|
+|function() {
+    x &lt;- rnorm(1e+07)
+    mean(x)
+}         |   0|    1ns| 19952274|        0B|      0| 10000|    0|
+|function() {
+    x &lt;- rnorm(1e+07)
+    sum(x)/100
+}      |   0|    1ns| 31301158|        0B|      0| 10000|    0|
+|function() {
+    x &lt;- rnorm(1e+07)
+    mean.default(x)
+} |   0|    1ns| 31880233|        0B|      0| 10000|    0|
+
+
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Helpful references:
+
+- https://bookdown.org/yihui/rmarkdown
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"ratio": "16:9",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
