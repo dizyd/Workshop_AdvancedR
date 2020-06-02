@@ -12,6 +12,8 @@ output:
       ratio: "16:9"
       highlightLines: true
       countIncrementalSlides: false
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE, message = FALSE, warning=FALSE}
@@ -23,10 +25,8 @@ library(benchmarkme)
 library(bench)
 library(data.table)
 library(kableExtra)
+library(pryr)
 ```
-
-
-
 
 ## Workshop
 
@@ -42,9 +42,31 @@ This workshop consists of three parts:
 
 At the end of this workshop, you should ...
 
-- know how to measure the speed of your R Code and find potential bottelnecks
+- know how to measure the speed of your R Code and find potential bottlenecks
 
 - know how to solve those bottlenecks through vectorized `R` code, Rcpp, or parallelization
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Some thoughts about optimization
+
+.pull-left[
+
+- Can save a lot of time, but also can waste a lot of time
+
+- There is often no single-best solution
+
+
+]
+.pull-right[
+
+<img src="images/automation.png", width="55%">
+
+<img src="images/efficiency.png", width="55%">
+
+from [xkcd](https://xkcd.com/)
+]
 
 
 
@@ -54,6 +76,13 @@ class: heading,middle
 
 
 Part 1: Benchmarking &  Profiling
+
+
+<!-- *********** HEADING ************** -->
+---
+class: heading,middle
+
+Tip 1: Hardware
 
 
 
@@ -117,6 +146,11 @@ Example from my computer:
 ]
 
 
+<!-- *********** HEADING ************** -->
+---
+class: heading,middle
+
+Tip 2: Compare possible functions
 
 <!-- *********** NEW SLIDE ************** -->
 ---
@@ -299,7 +333,7 @@ The answer: Use the [`bench::mark()`](https://github.com/r-lib/bench)  (or `micr
 ---
 ## Comparing functions with bench::mark()
 
-Example: Lets compare four ways to compute the rowmeans of a large data.frame
+Example: Lets compare four ways to compute the row means of a large data.frame
 
 .pull-left[
 
@@ -443,17 +477,247 @@ res <- bench::mark(
 
 <!-- *********** NEW SLIDE ************** -->
 ---
+class:small
 ## Comparing functions with bench::mark()
 
 You want to compare your functions for different parameters ? `bench::press()` !
 
-```{r}
+
+.pull-left[
+
+```{r eval = FALSE}
+
+
+set.seed(42)
+
+create_df <- function(rows, cols) {
+  as.data.frame(setNames(
+    replicate(cols, runif(rows, 1, 100),
+              simplify = FALSE),
+    rep_len(c("x", letters), cols)))
+}
+
+results <- bench::press(
+  rows = c(1e3,1e4),
+  cols = c(2, 10),
+  {
+    dat <- create_df(rows, cols)
+    bench::mark(
+      min_iterations = 100,
+      bracket = dat[dat$x > 500, ],
+      which = dat[which(dat$x > 500), ],
+      subset = subset(dat, x > 500)
+    )
+  }
+)
+
+autoplot(results) + theme_bw()
 
 ```
+
+
+]
+
+.pull-right[
+
+<img src="images/example_benchpress.png", width="100%">
+
+]
+
+<!-- *********** HEADING ************** -->
+---
+class: heading,middle
+
+Tip 3: Memory is not only a psych. topic
 
 <!-- *********** NEW SLIDE ************** -->
 ---
 ## Memory
+
+- R needs to  allocate memory if you create new objects or change existing objects
+
+- Functions using a lot of memory or needing many memory allocations can also slow down your code
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Example: For-loops - Growing vectors
+
+
+.pull-left[
+
+```{r}
+for_increment <- function(n){
+  
+  x <- c()#<<
+  
+  for(i in 1:n){
+    
+    x[i] <- i^2
+    
+  }
+}
+```
+
+
+]
+
+.pull-right[
+
+```{r}
+for_preset <- function(n){
+  
+  x <- vector(mode="integer",length=n)#<<
+  
+  for(i in 1:n){
+    
+    x[i] <- i^2
+    
+  }
+}
+```
+
+]
+
+```{r}
+res <- bench::mark(
+    for_increment(1e3),
+    for_preset(1e3)
+  )
+
+res[,1:8] %>% kable(.,format="markdown")
+```
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Example: For-loops - Copying instead of Modifying
+
+
+```{r}
+x       <- data.frame(matrix(runif(100 * 1e4), ncol = 100))
+medians <- vapply(x, median, numeric(1))
+```
+
+.pull-left[
+
+```{r}
+for(i in 1:5) {
+  x[, i] <- x[, i] - medians[i] #<<
+  print(c(address(x)))
+}
+```
+
+]
+
+.pull-right[
+
+```{r}
+y <- as.list(x)
+
+for(i in 1:5) {
+  y[[i]] <- y[[i]] - medians[i] #<<
+  print(c(address(y)))
+}
+```
+
+]
+
+```{r echo=FALSE}
+
+df_fun <- function(){
+   for(i in 1:5) {
+    x[, i] <- x[, i] - medians[i]
+  }
+}
+l_fun <- function(){
+  y <- as.list(x)
+  
+  for(i in 1:5) {
+    y[[i]] <- y[[i]] - medians[i]
+  }
+}
+
+
+res <- bench::mark(
+    df_fun(),
+    l_fun()
+  )
+
+res[,1:8] %>% kable(.,format="markdown")
+```
+
+<!-- *********** NEW SLIDE ************** -->
+---
+class: small
+## Example: From the field
+
+
+
+.pull-left[
+
+```{r}
+exemplar_for   <- function(s,exemplars,cues) {
+  
+  predictions <- rep(NA, nrow(cues))
+  sim         <- matrix(NA,nrow=nrow(exemplars),ncol=nrow(cues))
+  ncues       <- ncol(cues)
+  nex         <- ncol(exemplars)
+  
+  for (i in 1:nrow(cues)){
+    for (j in 1:nrow(exemplars)){
+      sim[j,i] <- s^(ncues-sum(cues[i,]==exemplars[j,-nex]))
+    }
+    predictions[i] <- sum(sim[,i]*t(exemplars[,nex]))/sum(sim[,i])
+  }
+  
+  return(predictions)
+}
+```
+
+]
+
+.pull-right[
+
+```{r}
+exemplar_purrr <- function(s,exemplars,cues) {
+  
+  ncues       <- ncol(cues)
+  nex         <- ncol(exemplars)
+  crit        <- exemplars[,nex] 
+  e           <- exemplars[,-nex] %>% t() %>% as.data.frame()
+  cu          <- cues %>% t() %>% as.data.frame()
+  
+  
+  temp <- map_dfr(cu,function(cu)map_dfr(e,cu,.f=function(x,y)sum(x == y))) %>% as.matrix()
+  (ncues-temp) %>% s**. ->  temp 
+  
+  sum_crit <- rowSums(temp)
+  product  <- temp %*% crit %>% c()
+  
+  return( product/sum_crit )
+}
+```
+
+]
+
+```{r echo=FALSE}
+bnch <- readRDS("Data/results_bench_example_memory.RDS")
+
+bnch[,1:8] %>% kable(.,format="markdown")
+```
+
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Garbage Collection
+
+- GC automatically releases memory when an object is no longer used
+
+- Hadley Wickem: *"There’s never any need to call gc() yourself. R will automatically run garbage collection whenever it needs more space"*
+
+- However, can sometimes be usefull to give memory space back to the operating system. 
+
 
 
 <!-- *********** NEW SLIDE ************** -->
@@ -461,13 +725,153 @@ You want to compare your functions for different parameters ? `bench::press()` !
 ## Your turn !
 
 
-- Reading in data (small and large)
-- List into df (see benchmarking.R)
+- Open the file `Benchmarking_exercises.R` in the `Exercise` folder
+- Go through the different tasks and compare the different functions
+- Think about what you would expect ? Are there any results that surprised you ? 
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Take aways from the exercies
+
+1. Sometimes its worth checking which function is faster, when you have many equal alternatives
+2. If designing e.g. a simulation, might be worth working with matrices and column-wise operations
+3. Sometimes faster functions are less readable
+4. Primitive functions are fast
+5. Use vectorized alternatives if they exist (i.e., ifelse vs apply)
+6. Which function is faster might depend on the data you have
+
+
+<!-- *********** HEADING ************** -->
+---
+class: heading,middle
+
+Tip 5: All Hail Google
+
+<!-- *********** NEW SLIDE ************** -->
+---
+class: small
+## Pre-existing Faster Alternatives
+
+Sometimes there may be already faster alternatives for some of the functions you are using, e.g.  [`speedlm`](https://cran.r-project.org/web/packages/speedglm/speedglm.pdf) instead of `lm`
+
+
+.pull-left[
+
+```{r message=FALSE, warning=FALSE}
+library(speedglm)
+
+create_df <- function(n) {
+  eps <- rnorm(n)
+  x1  <- rnorm(n)
+  x2  <- rep(c("a", "b"), n/2)
+  y   <- 6 * x1 + ifelse(x2 == "a",3,0) + eps
+  return(data.frame(y = y, x1 = x1, x2 = x2, eps = eps))
+}
+```
+
+]
+
+.pull-right[
+
+```{r message=FALSE, warning=FALSE}
+
+
+results <- bench::press(
+  n = c(1e2,1e4,1e6), #<<
+  {
+    dat <- create_df(n)
+    bench::mark(
+      "lm"      = lm(y ~ x1 + x2, data = dat),
+      "speedlm" = speedlm(y ~ x1 + x2, data = dat),
+      check=FALSE
+    )
+  }
+)
+```
+
+]
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+results[,1:8] %>% kable(.,format="markdown")
+```
+
+
+
+<!-- *********** HEADING ************** -->
+---
+class: heading,middle
+
+Tip 6: Profile your code 
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Profiling your R functions with profvis
+
+- Often you don't know what parts of your function might be slow
+
+- [profvis](https://rstudio.github.io/profvis/) helps you to identify and track the timing of all parts of your function (and its sub-functions)
+
+
+Example:
+
+```{r eval=FALSE}
+library(profvis)
+
+profvis({
+  # Create DF
+  temp <- as.data.frame(x = matrix(rnorm(4e5 * 100, mean = 5), ncol = 100))
+  
+  # Get column means
+  means <- apply(temp, 2, mean)
+  
+  # Subtract mean from each column
+  for (i in 1:length(means)) {
+    temp[, i] <- temp[, i] - means[i]
+  }
+})
+
+```
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Profiling your R functions with profvis
+
+```{r echo=FALSE}
+library(profvis)
+
+profvis({
+  # Create DF
+  temp <- as.data.frame(x = matrix(rnorm(4e5 * 100, mean = 5), ncol = 100))
+  
+  # Get column means
+  means <- apply(temp, 2, mean)
+  
+  # Subtract mean from each column
+  for (i in 1:length(means)) {
+    temp[, i] <- temp[, i] - means[i]
+  }
+})
+
+```
+
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Your turn !
+
+
+- Open the file `Profiling_exercises.R` in the `Exercise` folder.
+- There two exercises. 
+- Use `profvis` on the functions of the exercises and try to find potential bottlenecks  make them faster.
+
+
 
 <!-- *********** NEW SLIDE ************** -->
 ---
 ## Helpful references:
 
-- https://bookdown.org/yihui/rmarkdown
+- http://adv-r.had.co.nz/
 
 

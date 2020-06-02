@@ -6,6 +6,14 @@
     <meta name="author" content="David Izydorczyk" />
     <link href="libs/remark-css/default.css" rel="stylesheet" />
     <link href="libs/remark-css/default-fonts.css" rel="stylesheet" />
+    <script src="libs/htmlwidgets/htmlwidgets.js"></script>
+    <script src="libs/jquery/jquery.min.js"></script>
+    <script src="libs/d3/d3.min.js"></script>
+    <link href="libs/profvis/profvis.css" rel="stylesheet" />
+    <script src="libs/profvis/profvis.js"></script>
+    <link href="libs/highlight/textmate.css" rel="stylesheet" />
+    <script src="libs/highlight/highlight.js"></script>
+    <script src="libs/profvis-binding/profvis.js"></script>
     <link rel="stylesheet" href="subfiles\my-theme.css" type="text/css" />
     <link rel="stylesheet" href="subfiles\my-fonts.css" type="text/css" />
     <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
@@ -24,9 +32,6 @@ class: center, middle, inverse, title-slide
 
 
 
-
-
-
 ## Workshop
 
 This workshop consists of three parts:
@@ -41,9 +46,31 @@ This workshop consists of three parts:
 
 At the end of this workshop, you should ...
 
-- know how to measure the speed of your R Code and find potential bottelnecks
+- know how to measure the speed of your R Code and find potential bottlenecks
 
 - know how to solve those bottlenecks through vectorized `R` code, Rcpp, or parallelization
+
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Some thoughts about optimization
+
+.pull-left[
+
+- Can save a lot of time, but also can waste a lot of time
+
+- There is often no single-best solution
+
+
+]
+.pull-right[
+
+&lt;img src="images/automation.png", width="55%"&gt;
+
+&lt;img src="images/efficiency.png", width="55%"&gt;
+
+from [xkcd](https://xkcd.com/)
+]
 
 
 
@@ -53,6 +80,13 @@ class: heading,middle
 
 
 Part 1: Benchmarking &amp;  Profiling
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+class: heading,middle
+
+Tip 1: Hardware
 
 
 
@@ -117,6 +151,11 @@ Example from my computer:
 ]
 
 
+&lt;!-- *********** HEADING ************** --&gt;
+---
+class: heading,middle
+
+Tip 2: Compare possible functions
 
 &lt;!-- *********** NEW SLIDE ************** --&gt;
 ---
@@ -146,7 +185,7 @@ system.time(sqrt(1:1e7))
 
 ```
 ##    user  system elapsed 
-##    0.26    0.02    0.28
+##    0.30    0.01    0.32
 ```
 
 
@@ -167,7 +206,7 @@ Or entire bits of code
 
 ```
 ##    user  system elapsed 
-##    1.92    0.19    2.11
+##    2.14    0.22    2.36
 ```
 ]
 .pull-right[
@@ -186,7 +225,7 @@ system.time(
 
 ```
 ##    user  system elapsed 
-##       0       0      10
+##    0.00    0.00   10.01
 ```
 ]
 
@@ -296,7 +335,7 @@ toc()
 ```
 
 ```
-## rowsums: 0.2 sec elapsed
+## rowsums: 0.21 sec elapsed
 ```
 
 ```r
@@ -323,7 +362,7 @@ toc()
 ```
 
 ```
-## rowsums: 1.98 sec elapsed
+## rowsums: 2.11 sec elapsed
 ```
 
 ```r
@@ -333,7 +372,7 @@ toc()
 ```
 
 ```
-## colsums: 0.94 sec elapsed
+## colsums: 1.1 sec elapsed
 ```
 
 ]
@@ -361,7 +400,7 @@ The answer: Use the [`bench::mark()`](https://github.com/r-lib/bench)  (or `micr
 ---
 ## Comparing functions with bench::mark()
 
-Example: Lets compare four ways to compute the rowmeans of a large data.frame
+Example: Lets compare four ways to compute the row means of a large data.frame
 
 .pull-left[
 
@@ -428,12 +467,12 @@ res[,1:8] %&gt;% kable(.,format="markdown")
 
 
 
-|expression      |     min|  median|   itr/sec| mem_alloc|    gc/sec| n_itr| n_gc|
-|:---------------|-------:|-------:|---------:|---------:|---------:|-----:|----:|
-|fun_classic(m)  |  2.01ms|  2.08ms| 471.75987|   15.72KB|  0.000000|   236|    0|
-|fun_rowmeans(m) |  1.95ms|  2.05ms| 475.99562|    7.86KB|  0.000000|   238|    0|
-|fun_apply(m)    | 12.42ms| 18.21ms|  57.82032|   19.21MB|  2.065012|    28|    1|
-|fun_for(m)      | 81.87ms| 84.43ms|  11.80264|   12.02MB| 11.802641|     3|    3|
+|expression      |     min|  median|   itr/sec| mem_alloc|   gc/sec| n_itr| n_gc|
+|:---------------|-------:|-------:|---------:|---------:|--------:|-----:|----:|
+|fun_classic(m)  |  1.78ms|  2.15ms| 449.79336|    7.86KB| 0.000000|   225|    0|
+|fun_rowmeans(m) |  1.76ms|  1.94ms| 488.69138|    7.86KB| 0.000000|   245|    0|
+|fun_apply(m)    | 34.68ms| 43.26ms|  23.03164|   19.21MB| 0.000000|    12|    0|
+|fun_for(m)      | 91.83ms| 94.23ms|  10.66569|   12.04MB| 7.110459|     3|    2|
 
 
 &lt;!-- *********** NEW SLIDE ************** --&gt;
@@ -492,9 +531,9 @@ For example try this:
 
 ```r
 res &lt;- bench::mark(
-  "mean2" = function(){x &lt;- rnorm(1e5); mean(x)},
-  "mean3" = function(){x &lt;- rnorm(1e5); sum(x)/100},
-  "mean3" = function(){x &lt;- rnorm(1e5); mean.default(x)}
+  "mean1" = function(){x &lt;- rnorm(1e7); mean(x)},
+  "mean2" = function(){x &lt;- rnorm(1e7); sum(x)/100},
+  "mean3" = function(){x &lt;- rnorm(1e7); mean.default(x)}
 )
 ```
 
@@ -508,26 +547,401 @@ res &lt;- bench::mark(
   "mean3" = function(){x &lt;- rnorm(1e7); mean.default(x)},
 * check = FALSE
 )
+```
+
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+class:small
+## Comparing functions with bench::mark()
+
+You want to compare your functions for different parameters ? `bench::press()` !
+
+
+.pull-left[
+
+
+```r
+set.seed(42)
+
+create_df &lt;- function(rows, cols) {
+  as.data.frame(setNames(
+    replicate(cols, runif(rows, 1, 100),
+              simplify = FALSE),
+    rep_len(c("x", letters), cols)))
+}
+
+results &lt;- bench::press(
+  rows = c(1e3,1e4),
+  cols = c(2, 10),
+  {
+    dat &lt;- create_df(rows, cols)
+    bench::mark(
+      min_iterations = 100,
+      bracket = dat[dat$x &gt; 500, ],
+      which = dat[which(dat$x &gt; 500), ],
+      subset = subset(dat, x &gt; 500)
+    )
+  }
+)
+
+autoplot(results) + theme_bw()
+```
+
+
+]
+
+.pull-right[
+
+&lt;img src="images/example_benchpress.png", width="100%"&gt;
+
+]
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+class: heading,middle
+
+Tip 3: Memory is not only a psych. topic
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Memory
+
+- R needs to  allocate memory if you create new objects or change existing objects
+
+- Functions using a lot of memory or needing many memory allocations can also slow down your code
+
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Example: For-loops - Growing vectors
+
+
+.pull-left[
+
+
+```r
+for_increment &lt;- function(n){
+  
+* x &lt;- c()
+  
+  for(i in 1:n){
+    
+    x[i] &lt;- i^2
+    
+  }
+}
+```
+
+
+]
+
+.pull-right[
+
+
+```r
+for_preset &lt;- function(n){
+  
+* x &lt;- vector(mode="integer",length=n)
+  
+  for(i in 1:n){
+    
+    x[i] &lt;- i^2
+    
+  }
+}
+```
+
+]
+
+
+```r
+res &lt;- bench::mark(
+    for_increment(1e3),
+    for_preset(1e3)
+  )
 
 res[,1:8] %&gt;% kable(.,format="markdown")
 ```
 
 
 
-|expression                                               | min| median|  itr/sec| mem_alloc| gc/sec| n_itr| n_gc|
-|:--------------------------------------------------------|---:|------:|--------:|---------:|------:|-----:|----:|
-|function() {
-    x &lt;- rnorm(1e+07)
-    mean(x)
-}         |   0|    1ns| 19952274|        0B|      0| 10000|    0|
-|function() {
-    x &lt;- rnorm(1e+07)
-    sum(x)/100
-}      |   0|    1ns| 31301158|        0B|      0| 10000|    0|
-|function() {
-    x &lt;- rnorm(1e+07)
-    mean.default(x)
-} |   0|    1ns| 31880233|        0B|      0| 10000|    0|
+|expression          |     min|  median|  itr/sec| mem_alloc|   gc/sec| n_itr| n_gc|
+|:-------------------|-------:|-------:|--------:|---------:|--------:|-----:|----:|
+|for_increment(1000) | 184.8us| 215.5us|  4125.85|   187.5KB| 10.70537|  1927|    5|
+|for_preset(1000)    |  46.5us|  48.3us| 18252.58|    35.2KB|  0.00000|  9110|    0|
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Example: For-loops - Copying instead of Modifying
+
+
+
+```r
+x       &lt;- data.frame(matrix(runif(100 * 1e4), ncol = 100))
+medians &lt;- vapply(x, median, numeric(1))
+```
+
+.pull-left[
+
+
+```r
+for(i in 1:5) {
+* x[, i] &lt;- x[, i] - medians[i]
+  print(c(address(x)))
+}
+```
+
+```
+## [1] "0x2643b3b0"
+## [1] "0x2f589668"
+## [1] "0x2923a930"
+## [1] "0x355dee70"
+## [1] "0x267e2300"
+```
+
+]
+
+.pull-right[
+
+
+```r
+y &lt;- as.list(x)
+
+for(i in 1:5) {
+* y[[i]] &lt;- y[[i]] - medians[i]
+  print(c(address(y)))
+}
+```
+
+```
+## [1] "0x271bfb10"
+## [1] "0x271bfb10"
+## [1] "0x271bfb10"
+## [1] "0x271bfb10"
+## [1] "0x271bfb10"
+```
+
+]
+
+
+|expression |     min|  median|   itr/sec| mem_alloc|   gc/sec| n_itr| n_gc|
+|:----------|-------:|-------:|---------:|---------:|--------:|-----:|----:|
+|df_fun()   | 184.2us| 321.4us|  3197.404|     420KB| 4.120366|  1552|    2|
+|l_fun()    |  34.3us|  46.3us| 12421.005|     416KB| 5.608943|  4429|    2|
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+class: small
+## Example: From the field
+
+
+
+.pull-left[
+
+
+```r
+exemplar_for   &lt;- function(s,exemplars,cues) {
+  
+  predictions &lt;- rep(NA, nrow(cues))
+  sim         &lt;- matrix(NA,nrow=nrow(exemplars),ncol=nrow(cues))
+  ncues       &lt;- ncol(cues)
+  nex         &lt;- ncol(exemplars)
+  
+  for (i in 1:nrow(cues)){
+    for (j in 1:nrow(exemplars)){
+      sim[j,i] &lt;- s^(ncues-sum(cues[i,]==exemplars[j,-nex]))
+    }
+    predictions[i] &lt;- sum(sim[,i]*t(exemplars[,nex]))/sum(sim[,i])
+  }
+  
+  return(predictions)
+}
+```
+
+]
+
+.pull-right[
+
+
+```r
+exemplar_purrr &lt;- function(s,exemplars,cues) {
+  
+  ncues       &lt;- ncol(cues)
+  nex         &lt;- ncol(exemplars)
+  crit        &lt;- exemplars[,nex] 
+  e           &lt;- exemplars[,-nex] %&gt;% t() %&gt;% as.data.frame()
+  cu          &lt;- cues %&gt;% t() %&gt;% as.data.frame()
+  
+  
+  temp &lt;- map_dfr(cu,function(cu)map_dfr(e,cu,.f=function(x,y)sum(x == y))) %&gt;% as.matrix()
+  (ncues-temp) %&gt;% s**. -&gt;  temp 
+  
+  sum_crit &lt;- rowSums(temp)
+  product  &lt;- temp %*% crit %&gt;% c()
+  
+  return( product/sum_crit )
+}
+```
+
+]
+
+
+|expression                                     |     min|  median|  itr/sec| mem_alloc|    gc/sec| n_itr| n_gc|
+|:----------------------------------------------|-------:|-------:|--------:|---------:|---------:|-----:|----:|
+|exemplar_module_pred_for(s, exemplars, cues)   | 314.3ms| 333.9ms|  2.87505|     101KB| 1.0633746|    73|   27|
+|exemplar_module_pred_purrr(s, exemplars, cues) |  51.6ms|  54.4ms| 17.71428|     404KB| 0.7380948|    96|    4|
+
+
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Garbage Collection
+
+- GC automatically releases memory when an object is no longer used
+
+- Hadley Wickem: *"There’s never any need to call gc() yourself. R will automatically run garbage collection whenever it needs more space"*
+
+- However, can sometimes be usefull to give memory space back to the operating system. 
+
+
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Your turn !
+
+
+- Open the file `Benchmarking_exercises.R` in the `Exercise` folder
+- Go through the different tasks and compare the different functions
+- Think about what you would expect ? Are there any results that surprised you ? 
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Take aways from the exercies
+
+1. Sometimes its worth checking which function is faster, when you have many equal alternatives
+2. If designing e.g. a simulation, might be worth working with matrices and column-wise operations
+3. Sometimes faster functions are less readable
+4. Primitive functions are fast
+5. Use vectorized alternatives if they exist (i.e., ifelse vs apply)
+6. Which function is faster might depend on the data you have
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+class: heading,middle
+
+Tip 5: All Hail Google
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+class: small
+## Pre-existing Faster Alternatives
+
+Sometimes there may be already faster alternatives for some of the functions you are using, e.g.  [`speedlm`](https://cran.r-project.org/web/packages/speedglm/speedglm.pdf) instead of `lm`
+
+
+.pull-left[
+
+
+```r
+library(speedglm)
+
+create_df &lt;- function(n) {
+  eps &lt;- rnorm(n)
+  x1  &lt;- rnorm(n)
+  x2  &lt;- rep(c("a", "b"), n/2)
+  y   &lt;- 6 * x1 + ifelse(x2 == "a",3,0) + eps
+  return(data.frame(y = y, x1 = x1, x2 = x2, eps = eps))
+}
+```
+
+]
+
+.pull-right[
+
+
+```r
+results &lt;- bench::press(
+* n = c(1e2,1e4,1e6),
+  {
+    dat &lt;- create_df(n)
+    bench::mark(
+      "lm"      = lm(y ~ x1 + x2, data = dat),
+      "speedlm" = speedlm(y ~ x1 + x2, data = dat),
+      check=FALSE
+    )
+  }
+)
+```
+
+]
+
+
+|expression                       |     n|      min|   median|    itr/sec| mem_alloc|   gc/sec| n_itr|
+|:--------------------------------|-----:|--------:|--------:|----------:|---------:|--------:|-----:|
+|lm(y ~ x1 + x2, data = dat)      | 1e+02|  790.1us| 906.05us| 998.893908|  678.23KB| 2.030272|   492|
+|speedlm(y ~ x1 + x2, data = dat) | 1e+02|  922.2us|      1ms| 902.527629|  352.81KB| 4.083835|   442|
+|lm(y ~ x1 + x2, data = dat)      | 1e+04|   2.34ms|   2.62ms| 358.885654|    2.78MB| 2.027603|   177|
+|speedlm(y ~ x1 + x2, data = dat) | 1e+04|    2.1ms|   2.69ms| 333.816904|    2.09MB| 0.000000|   168|
+|lm(y ~ x1 + x2, data = dat)      | 1e+06| 192.82ms| 198.26ms|   5.043966|  264.33MB| 2.521983|     2|
+|speedlm(y ~ x1 + x2, data = dat) | 1e+06| 111.58ms|  120.6ms|   8.291833|  199.57MB| 8.291833|     2|
+
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+class: heading,middle
+
+Tip 6: Profile your code 
+
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Profiling your R functions with profvis
+
+- Often you don't know what parts of your function might be slow
+
+- [profvis](https://rstudio.github.io/profvis/) helps you to identify and track the timing of all parts of your function (and its sub-functions)
+
+
+Example:
+
+
+```r
+library(profvis)
+
+profvis({
+  # Create DF
+  temp &lt;- as.data.frame(x = matrix(rnorm(4e5 * 100, mean = 5), ncol = 100))
+  
+  # Get column means
+  means &lt;- apply(temp, 2, mean)
+  
+  # Subtract mean from each column
+  for (i in 1:length(means)) {
+    temp[, i] &lt;- temp[, i] - means[i]
+  }
+})
+```
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Profiling your R functions with profvis
+
+<div id="htmlwidget-88755b2d3021a4a03969" style="width:100%;height:600px;" class="profvis html-widget"></div>
+<script type="application/json" data-for="htmlwidget-88755b2d3021a4a03969">{"x":{"message":{"prof":{"time":[1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31,32,32,33,33,34,34,35,35,36,36,37,37,38,38,39,39,40,40,41,41,42,42,43,43,44,44,45,45,46,46,47,47,48,48,49,49,50,50,51,51,52,52,53,53,54,54,55,55,56,56,57,57,58,58,59,59,60,60,61,61,62,62,63,63,64,64,65,65,66,66,67,67,68,68,69,69,70,70,71,71,72,72,73,73,74,74,75,75,76,76,77,77,78,78,79,79,80,80,81,81,82,82,83,83,84,84,85,85,86,86,87,87,88,88,89,89,90,90,91,91,92,92,93,93,94,94,95,95,96,96,97,97,98,98,99,99,100,100,101,101,102,102,103,103,104,104,105,105,106,106,107,107,108,108,109,109,110,110,111,111,112,112,113,113,114,114,115,115,116,116,117,117,118,118,119,119,120,120,121,121,122,122,123,123,124,124,125,125,126,126,127,127,128,128,129,129,130,130,131,131,132,132,133,133,134,134,135,135,136,136,137,137,138,138,139,139,140,140,141,141,142,142,143,143,144,144,145,145,146,146,147,147,148,148,149,149,150,150,151,151,152,152,153,153,154,154,155,155,156,156,157,157,158,158,159,159,160,160,161,161,162,162,163,163,164,164,165,165,166,166,167,167,168,168,169,169,170,170,171,171,172,172,173,173,174,174,175,175,176,176,177,177,178,178,179,179,180,180,181,181,182,182,183,183,184,184,185,185,186,186,187,187,188,188,189,189,190,190,191,191,192,192,193,193,194,194,195,195,196,196,197,197,198,198,199,199,200,200,201,201,202,202,203,203,204,204,205,205,206,206,207,207,208,208,209,209,210,210,211,211,212,212,213,213,214,214,215,215,216,216,217,217,218,218,219,219,220,220,221,221,222,222,223,223,224,224,225,225,226,226,227,227,228,228,229,229,230,230,231,231,232,232,233,233,234,234,235,235,236,236,237,237,238,238,239,239,240,240,241,241,242,242,243,243,244,244,245,245,246,246,247,247,248,248,249,249,250,250,251,251,252,252,253,253,254,254,255,255,256,256,257,257,258,258,259,259,260,260,261,261,262,262,263,263,264,264,265,265,266,266,267,267,268,268,269,269,270,270,271,272,273,274,275,275,276,276,277,277,278,278,279,279,280,280,281,281,282,282,283,283,284,284,285,285,285,286,286,286,287,287,287,288,288,288,289,289,289,290,290,290,291,291,291,292,292,292,293,293,293,294,294,294,295,295,295,296,296,296,297,297,297,298,298,298,299,299,299,300,300,300,301,301,301,302,302,302,303,303,304,304,305,305,306,306,307,307,308,308,309,309,310,310,311,311,312,312,313,313,314,314,315,315,316,316,317,317,318,318,319,319,320,320,321,321,322,322,323,323,324,324,325,325,326,326,327,327,328,328,329,329,330,330,331,331,332,332,333,333,334,334,335,335,336,336,337,337,338,338,339,339,340,340,341,341,342,342,343,343,344,344,345,345,346,346,347,347,348,348,349,349,350,350,351,351,352,352,352,352,356,356,356,356,360,360,360,360,361,361,361,361,363,363,363,363,366,366,366,366,368,369,372,372,372,372,373,373,373,373,373,373,373,373,373,373,373,373,373,373,373,373,373,373,374,375,375,375,375,375,375,375,375,375,375,375,375,375,375,375,375,375,375,375,375,375,375,375,375,375,375,375,376,376,376,376,376,376,376,376,376,376,376,376,376,376,376,376,376,376,376,376,376,376,376,376,376,376,376,377,377,377,377,377,377,377,377,377,377,377,377,377,377,377,377,377,377,377,377,377,377,377,377,377,377,377,378,378,378,378,378,378,378,378,378,378,378,378,378,378,378,378,378,378,378,378,378,378,378,378,378,378,378,379,379,379,379,379,379,379,379,379,379,379,379,379,379,379,379,379,379,379,379,379,379,379,379,379,379,379,380,380,380,380,380,380,380,380,380,380,380,380,380,380,380,380,380,380,380,380,380,380,380,380,380,380,380,381,381,381,381,381,381,381,381,381,381,381,381,381,381,381,381,381,381,381,381,381,381,381,381,381,381,381,382,382,382,382,382,382,382,382,382,382,382,382,382,382,382,382,382,382,382,382,382,382,382,382,382,382,382],"depth":[2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,1,1,1,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,3,2,1,3,2,1,3,2,1,3,2,1,3,2,1,3,2,1,3,2,1,3,2,1,3,2,1,3,2,1,3,2,1,3,2,1,3,2,1,3,2,1,3,2,1,3,2,1,3,2,1,3,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,4,3,2,1,4,3,2,1,4,3,2,1,4,3,2,1,4,3,2,1,4,3,2,1,1,1,4,3,2,1,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,1,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1],"label":["matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","matrix","as.data.frame","as.data.frame","as.data.frame","as.data.frame","as.data.frame","as.data.frame.matrix","as.data.frame","as.data.frame.matrix","as.data.frame","as.data.frame.matrix","as.data.frame","as.data.frame.matrix","as.data.frame","as.data.frame.matrix","as.data.frame","as.data.frame.matrix","as.data.frame","as.data.frame.matrix","as.data.frame","as.data.frame.matrix","as.data.frame","as.data.frame.matrix","as.data.frame","as.data.frame.matrix","as.data.frame","as.matrix.data.frame","as.matrix","apply","as.matrix.data.frame","as.matrix","apply","as.matrix.data.frame","as.matrix","apply","as.matrix.data.frame","as.matrix","apply","as.matrix.data.frame","as.matrix","apply","as.matrix.data.frame","as.matrix","apply","as.matrix.data.frame","as.matrix","apply","<GC>","aperm","apply","<GC>","aperm","apply","<GC>","aperm","apply","<GC>","aperm","apply","<GC>","aperm","apply","<GC>","aperm","apply","<GC>","aperm","apply","<GC>","aperm","apply","<GC>","aperm","apply","<GC>","aperm","apply","<GC>","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","aperm","apply","FUN","standardGeneric","FUN","apply","FUN","standardGeneric","FUN","apply","FUN","standardGeneric","FUN","apply","FUN","standardGeneric","FUN","apply","FUN","standardGeneric","FUN","apply","FUN","standardGeneric","FUN","apply","<GC>","<GC>","FUN","standardGeneric","FUN","apply","getInlineInfo","isBaseVar","FUN","lapply","unlist","Filter","findLocalsList","findLocals","as.vector","unique","union","addCenvVars","compile","doTryCatch","tryCatchOne","tryCatchList","tryCatch","compiler:::tryCompile","temp[, i] <- temp[, i] - means[i]","temp[, i] <- temp[, i] - means[i]","doTryCatch","tryCatchOne","tryCatchList","doTryCatch","tryCatchOne","tryCatchList","tryCatch","profvis","eval","eval","withVisible","withCallingHandlers","handle","timing_fn","evaluate_call","evaluate::evaluate","evaluate","in_dir","block_exec","call_block","process_group.block","process_group","withCallingHandlers","process_file","knitr::knit","rmarkdown::render","temp[, i] <- temp[, i] - means[i]","doTryCatch","tryCatchOne","tryCatchList","doTryCatch","tryCatchOne","tryCatchList","tryCatch","profvis","eval","eval","withVisible","withCallingHandlers","handle","timing_fn","evaluate_call","evaluate::evaluate","evaluate","in_dir","block_exec","call_block","process_group.block","process_group","withCallingHandlers","process_file","knitr::knit","rmarkdown::render","temp[, i] <- temp[, i] - means[i]","doTryCatch","tryCatchOne","tryCatchList","doTryCatch","tryCatchOne","tryCatchList","tryCatch","profvis","eval","eval","withVisible","withCallingHandlers","handle","timing_fn","evaluate_call","evaluate::evaluate","evaluate","in_dir","block_exec","call_block","process_group.block","process_group","withCallingHandlers","process_file","knitr::knit","rmarkdown::render","temp[, i] <- temp[, i] - means[i]","doTryCatch","tryCatchOne","tryCatchList","doTryCatch","tryCatchOne","tryCatchList","tryCatch","profvis","eval","eval","withVisible","withCallingHandlers","handle","timing_fn","evaluate_call","evaluate::evaluate","evaluate","in_dir","block_exec","call_block","process_group.block","process_group","withCallingHandlers","process_file","knitr::knit","rmarkdown::render","temp[, i] <- temp[, i] - means[i]","doTryCatch","tryCatchOne","tryCatchList","doTryCatch","tryCatchOne","tryCatchList","tryCatch","profvis","eval","eval","withVisible","withCallingHandlers","handle","timing_fn","evaluate_call","evaluate::evaluate","evaluate","in_dir","block_exec","call_block","process_group.block","process_group","withCallingHandlers","process_file","knitr::knit","rmarkdown::render","temp[, i] <- temp[, i] - means[i]","doTryCatch","tryCatchOne","tryCatchList","doTryCatch","tryCatchOne","tryCatchList","tryCatch","profvis","eval","eval","withVisible","withCallingHandlers","handle","timing_fn","evaluate_call","evaluate::evaluate","evaluate","in_dir","block_exec","call_block","process_group.block","process_group","withCallingHandlers","process_file","knitr::knit","rmarkdown::render","temp[, i] <- temp[, i] - means[i]","doTryCatch","tryCatchOne","tryCatchList","doTryCatch","tryCatchOne","tryCatchList","tryCatch","profvis","eval","eval","withVisible","withCallingHandlers","handle","timing_fn","evaluate_call","evaluate::evaluate","evaluate","in_dir","block_exec","call_block","process_group.block","process_group","withCallingHandlers","process_file","knitr::knit","rmarkdown::render","temp[, i] <- temp[, i] - means[i]","doTryCatch","tryCatchOne","tryCatchList","doTryCatch","tryCatchOne","tryCatchList","tryCatch","profvis","eval","eval","withVisible","withCallingHandlers","handle","timing_fn","evaluate_call","evaluate::evaluate","evaluate","in_dir","block_exec","call_block","process_group.block","process_group","withCallingHandlers","process_file","knitr::knit","rmarkdown::render"],"filenum":[null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,1,1,1,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,null,1,null,null,1,null,null,1,null,null,1,null,null,1,null,null,1,null,null,1,null,null,1,null,null,1,null,null,1,null,null,1,null,null,1,null,null,1,null,null,1,null,null,1,null,null,1,null,null,1,null,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,null,null,1,null,null,null,1,null,null,null,1,null,null,null,1,null,null,null,1,null,null,null,1,null,null,null,null,null,1,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1,1,1,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"linenum":[null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,5,5,5,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,5,null,null,8,null,null,8,null,null,8,null,null,8,null,null,8,null,null,8,null,null,8,null,null,8,null,null,8,null,null,8,null,null,8,null,null,8,null,null,8,null,null,8,null,null,8,null,null,8,null,null,8,null,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,8,null,null,null,8,null,null,null,8,null,null,null,8,null,null,null,8,null,null,null,8,null,null,null,8,null,null,null,null,null,8,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,11,12,12,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,12,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,12,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,12,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,12,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,12,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,12,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,12,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"memalloc":[1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1192.92618560791,1498.10438537598,1498.10438537598,1498.10438537598,1498.10438537598,1516.41589355469,1516.41589355469,1575.9253692627,1575.9253692627,1626.27954101562,1626.27954101562,1672.05606079102,1672.05606079102,1705.62551879883,1705.62551879883,1357.71869659424,1357.71869659424,1412.65052032471,1412.65052032471,1469.10823822021,1469.10823822021,1527.09181976318,1527.09181976318,1582.02364349365,1582.02364349365,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10330200195,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.10635375977,1498.09867858887,1498.09867858887,1498.09867858887,1498.09867858887,1498.09867858887,1498.09867858887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1803.27445983887,1821.58923339844,1821.58923339844,1821.58923339844,1821.58923339844,1940.6107635498,1940.6107635498,1940.6107635498,1940.6107635498,2032.16578674316,2032.16578674316,2032.16578674316,2032.16578674316,2050.47679138184,2050.47679138184,2050.47679138184,2050.47679138184,2096.25430297852,2096.25430297852,2096.25430297852,2096.25430297852,2151.18731689453,2151.18731689453,2151.18731689453,2151.18731689453,2009.28128051758,1871.95217895508,1862.7866973877,1862.7866973877,1862.7866973877,1862.7866973877,1885.68162536621,1885.68162536621,1885.68162536621,1885.68162536621,1885.68162536621,1885.68162536621,1885.68162536621,1885.68162536621,1885.68162536621,1885.68162536621,1885.68162536621,1885.68162536621,1885.68162536621,1885.68162536621,1885.68162536621,1885.68162536621,1885.68162536621,1885.68162536621,1928.50255584717,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1959.04262542725,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,1989.58347320557,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2023.17840576172,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2050.66516876221,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2081.20601654053,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2117.85503387451,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2142.28771209717,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115,2178.93672943115],"meminc":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,305.178199768066,0,0,0,18.3115081787109,0,59.5094757080078,0,50.3541717529297,0,45.7765197753906,0,33.5694580078125,0,-347.90682220459,0,54.9318237304688,0,56.4577178955078,0,57.9835815429688,0,54.9318237304688,0,-83.9203414916992,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0.0030517578125,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-0.0076751708984375,0,0,0,0,0,305.17578125,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,18.3147735595703,0,0,0,119.021530151367,0,0,0,91.5550231933594,0,0,0,18.3110046386719,0,0,0,45.7775115966797,0,0,0,54.9330139160156,0,0,0,-141.906036376953,-137.3291015625,-9.16548156738281,0,0,0,22.8949279785156,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,42.820930480957,30.5400695800781,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,30.5408477783203,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,33.5949325561523,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,27.4867630004883,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,30.5408477783203,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,36.6490173339844,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,24.4326782226562,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,36.6490173339844,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"filename":[null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>","<expr>","<expr>","<expr>","<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,null,"<expr>",null,null,"<expr>",null,null,"<expr>",null,null,"<expr>",null,null,"<expr>",null,null,"<expr>",null,null,"<expr>",null,null,"<expr>",null,null,"<expr>",null,null,"<expr>",null,null,"<expr>",null,null,"<expr>",null,null,"<expr>",null,null,"<expr>",null,null,"<expr>",null,null,"<expr>",null,null,"<expr>",null,null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,"<expr>",null,null,null,"<expr>",null,null,null,"<expr>",null,null,null,"<expr>",null,null,null,"<expr>",null,null,null,"<expr>",null,null,null,"<expr>",null,null,null,null,null,"<expr>",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,"<expr>","<expr>","<expr>",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,"<expr>",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,"<expr>",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,"<expr>",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,"<expr>",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,"<expr>",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,"<expr>",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,"<expr>",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null]},"interval":10,"files":[{"filename":"<expr>","content":"library(profvis)\n\nprofvis({\n  # Create DF\n  temp <- as.data.frame(x = matrix(rnorm(4e5 * 100, mean = 5), ncol = 100))\n  \n  # Get column means\n  means <- apply(temp, 2, mean)\n  \n  # Subtract mean from each column\n  for (i in 1:length(means)) {\n    temp[, i] <- temp[, i] - means[i]\n  }\n})\n","normpath":"<expr>"}],"prof_output":"C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\RtmpuIkQGq\\file46683b7d4942.prof","highlight":{"output":["^output\\$"],"gc":["^<GC>$"],"stacktrace":["^\\.\\.stacktraceo(n|ff)\\.\\.$"]},"split":"h"}},"evals":[],"jsHooks":[]}</script>
+
+
+
+&lt;!-- *********** NEW SLIDE ************** --&gt;
+---
+## Your turn !
+
+
+- Open the file `Profiling_exercises.R` in the `Exercise` folder.
+- There two exercises. 
+- Use `profvis` on the functions of the exercises and try to find potential bottlenecks  make them faster.
 
 
 
@@ -535,7 +949,7 @@ res[,1:8] %&gt;% kable(.,format="markdown")
 ---
 ## Helpful references:
 
-- https://bookdown.org/yihui/rmarkdown
+- http://adv-r.had.co.nz/
     </textarea>
 <style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
 <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
