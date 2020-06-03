@@ -57,6 +57,8 @@ At the end of this workshop, you should ...
 
 - There is often no single-best solution
 
+- Still often worth to profile your functions or simulation code
+
 
 ]
 .pull-right[
@@ -156,11 +158,11 @@ Tip 2: Compare possible functions
 ---
 ## Benchmarking 
 
-We will look at four functions for benchmarking your R Code:
+We will look at three functions for benchmarking your R Code:
 
 - `system.time()`
 - `tic()`and `toc()`
-- `bench()`
+- `mark()`
 
 
 <!-- *********** NEW SLIDE ************** -->
@@ -192,6 +194,10 @@ system.time({ #<<
 })#<<
 ```
 ]
+
+--
+
+
 .pull-right[
 - **User**: gives the CPU time spent by the current process (i.e., the current R session)
 
@@ -201,7 +207,7 @@ system.time({ #<<
 
 ```{r}
 system.time(
-  Sys.sleep(10) #10 seconds
+  Sys.sleep(10) #do nothing for 10 seconds
   )
 ```
 ]
@@ -244,22 +250,41 @@ toc()
 ```
 ]
 
+--
+
 .pull-right[
 
 You can also make nested expressions
 
 
-```{r}
+```{r eval=FALSE}
 
 tic("Everything")
 
-  tic("Make Matrix")
-  mat <- matrix(1:1e6,ncol=1000)
+  tic("Make data.frame")
+  df <- as.data.frame(matrix(1:4e6,ncol=1000))
   toc()
     
   tic("calculate sums")
-  rowsums <- rowSums(mat)
-  colsums <- colSums(mat)
+  rowsums <- rowSums(df)
+  colsums <- colSums(df)
+  toc()
+  
+toc()
+
+```
+
+```{r echo=FALSE}
+
+tic("Everything")
+
+  tic("Make data.frame")
+  df <- as.data.frame(matrix(1:4e6,ncol=1000))
+  toc()
+    
+  tic("calculate sums")
+  rowsums <- rowSums(df)
+  colsums <- colSums(df)
   toc()
   
 toc()
@@ -275,7 +300,7 @@ class:small
 
 .pull-left[
 
-Comparing different functions with `tictoc`or `system.time()` can be annyoing
+Comparing different functions with `tic()-toc()` or `system.time()` can be annoying
 
 
 ```{r}
@@ -321,12 +346,12 @@ toc()
 class:small
 ## Comparing functions with bench::mark()
 
-The answer: Use the [`bench::mark()`](https://github.com/r-lib/bench)  (or `microbenchmark`)
+The answer: Use [`bench::mark()`](https://github.com/r-lib/bench)  (or `microbenchmark`)
 
 - More accurate than `system.time()` and `tictoc()`
 - Allows to make easy comparisons between functions
 - Allows to specify number of iterations
-- Also reports memory (!! `bench::mark()` > `microbenchmark`)
+- Also reports memory (! `bench::mark()` > `microbenchmark()`)
 
 
 <!-- *********** NEW SLIDE ************** -->
@@ -338,10 +363,12 @@ Example: Lets compare four ways to compute the row means of a large data.frame
 .pull-left[
 
 ```{r}
+# 1
 fun_classic <- function(m) {
   rowSums(m)/ncol(m)
 }
 
+# 2 
 fun_rowmeans <- function(m) {
   rowMeans(m)
 }
@@ -350,19 +377,19 @@ fun_rowmeans <- function(m) {
 ]
 .pull-right[
 ```{r}
-
+# 3
 fun_apply   <- function(m) { 
   apply(m,1,mean)
 }
 
 
+# 4 
 fun_for     <- function(m) {
   
-  y <- c()
+  y <- vector(mode="integer",length=nrow(m))
   
   for(i in 1:nrow(m)){
-    x    <- m[i,] %>% unlist() 
-    y[i] <- mean(x)
+    y[i] <- mean(m[i,])
   }
    y
 }
@@ -389,12 +416,15 @@ res <- bench::mark(
   fun_for(m)
 )
   
+
 ```
+
+--
 
 Results:
 
 ```{r}
-res[,1:8] %>% kable(.,format="markdown")
+res[,1:8] %>% kable(.,format="markdown",digits = 2)
 ```
 
 
@@ -454,7 +484,7 @@ For example try this:
 
 res <- bench::mark(
   "mean1" = function(){x <- rnorm(1e7); mean(x)},
-  "mean2" = function(){x <- rnorm(1e7); sum(x)/100},
+  "mean2" = function(){x <- rnorm(1e7); sum(x)/1e7},
   "mean3" = function(){x <- rnorm(1e7); mean.default(x)}
 )
 
@@ -466,7 +496,7 @@ Better:
 
 res <- bench::mark(
   "mean1" = function(){x <- rnorm(1e7); mean(x)},
-  "mean2" = function(){x <- rnorm(1e7); sum(x)/100},
+  "mean2" = function(){x <- rnorm(1e7); sum(x)/1e7},
   "mean3" = function(){x <- rnorm(1e7); mean.default(x)},
   check = FALSE #<<
 )
@@ -487,14 +517,13 @@ You want to compare your functions for different parameters ? `bench::press()` !
 
 ```{r eval = FALSE}
 
-
-set.seed(42)
-
 create_df <- function(rows, cols) {
   as.data.frame(setNames(
-    replicate(cols, runif(rows, 1, 100),
+    replicate(cols,
+              runif(rows, 1, 100),
               simplify = FALSE),
-    rep_len(c("x", letters), cols)))
+    rep_len(c("x", letters), cols)
+  ))
 }
 
 results <- bench::press(
@@ -506,12 +535,13 @@ results <- bench::press(
       min_iterations = 100,
       bracket = dat[dat$x > 500, ],
       which = dat[which(dat$x > 500), ],
-      subset = subset(dat, x > 500)
+      subset = subset(dat, x > 500),
+      dplyr  = filter(dat,x > 500)
     )
   }
 )
 
-autoplot(results) + theme_bw()
+autoplot(results) + theme_bw() 
 
 ```
 
@@ -579,6 +609,8 @@ for_preset <- function(n){
 
 ]
 
+
+
 ```{r}
 res <- bench::mark(
     for_increment(1e3),
@@ -595,7 +627,7 @@ res[,1:8] %>% kable(.,format="markdown")
 
 ```{r}
 x       <- data.frame(matrix(runif(100 * 1e4), ncol = 100))
-medians <- vapply(x, median, numeric(1))
+medians <- apply(x, 2 ,median)
 ```
 
 .pull-left[
@@ -733,7 +765,7 @@ bnch[,1:8] %>% kable(.,format="markdown")
 ---
 ## Take aways from the exercies
 
-1. Sometimes its worth checking which function is faster, when you have many equal alternatives
+1. Sometimes its worth checking which function is faster when you have many equal alternatives
 2. If designing e.g. a simulation, might be worth working with matrices and column-wise operations
 3. Sometimes faster functions are less readable
 4. Primitive functions are fast
@@ -761,11 +793,11 @@ Sometimes there may be already faster alternatives for some of the functions you
 library(speedglm)
 
 create_df <- function(n) {
-  eps <- rnorm(n)
+  e   <- rnorm(n)
   x1  <- rnorm(n)
   x2  <- rep(c("a", "b"), n/2)
-  y   <- 6 * x1 + ifelse(x2 == "a",3,0) + eps
-  return(data.frame(y = y, x1 = x1, x2 = x2, eps = eps))
+  y   <- 6 * x1 + ifelse(x2 == "a",3,0) + e
+  return(data.frame(y = y, x1 = x1, x2 = x2))
 }
 ```
 
