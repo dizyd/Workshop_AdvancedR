@@ -25,7 +25,6 @@ library(benchmarkme)
 library(bench)
 library(data.table)
 library(kableExtra)
-library(pryr)
 ```
 
 ## Workshop
