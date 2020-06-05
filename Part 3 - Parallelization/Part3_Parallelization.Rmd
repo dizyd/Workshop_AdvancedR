@@ -1,0 +1,140 @@
+---
+title: "Advanced R"
+subtitle: "Writing Faster R Code"
+author: "David Izydorczyk"
+date: "12.05.2020"
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: ["default", "default-fonts","subfiles/my-theme.css","subfiles/my-fonts.css","xaringan-themer.css"]
+    nature:
+      highlightStyle: github
+      ratio: "16:9"
+      highlightLines: true
+      countIncrementalSlides: false
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE, message = FALSE, warning=FALSE}
+options(htmltools.dir.version = FALSE)
+library(tidyverse)
+library(tictoc)
+library(microbenchmark)
+library(benchmarkme)
+library(bench)
+library(data.table)
+library(kableExtra)
+library(foreach)
+```
+
+
+class: heading,middle
+
+
+Part 3: Parallelization
+
+
+<!-- *********** HEADING ************** -->
+---
+class: heading,middle
+
+Parallelization with `foreach`
+
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## foreach
+
+- `foreach` is like a for loop, but is implemented using a binary operator, called `%do%`.
+- The main difference between `foreach` and an old boring for loop is that it returns a value (you can also specify the output format)
+
+.pull-left[
+
+```{r}
+for(i in  1:2){
+  sqrt(i)
+}
+```
+
+```{r}
+library(foreach)
+
+foreach(i = 1:2,.combine = "list") %do% {
+  sqrt(i)
+}
+```
+
+] 
+
+.pull-right[
+
+```{r}
+library(foreach)
+
+foreach(i = 1:2,.combine = "c") %do% {
+  sqrt(i)
+}
+```
+
+```{r}
+library(foreach)
+
+foreach(i = 1:2,.combine = "+") %do% {
+  sqrt(i)
+}
+```
+
+]
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## foreach
+
+- The real power of `foreach` is when you combine it with` doParallel`
+- The `doParallel` package is a “parallel backend” for the `foreach` package
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Example
+
+- The real power of `foreach` is when you combine it with` doParallel`
+- The `doParallel` package is a “parallel backend” for the `foreach` package
+
+
+Cores  | Speed
+-------|-------
+No parallelization|dasdad
+asdasd|dasdasd
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Adding a progress bar
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## nested foreach
+
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Your turn !
+
+
+
+
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Helpful references:
+
+- http://adv-r.had.co.nz/
+- [foreach intro](https://cran.r-project.org/web/packages/doParallel/vignettes/gettingstartedParallel.pdf)
+- [foreach intro 2](https://privefl.github.io/blog/a-guide-to-parallelism-in-r/)
+
