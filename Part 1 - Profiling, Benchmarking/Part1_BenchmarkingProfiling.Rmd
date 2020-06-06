@@ -303,7 +303,7 @@ Comparing different functions with `tic()-toc()` or `system.time()` can be annoy
 
 
 ```{r}
-m <- matrix(5,nrow=1e4,ncol=1e4)
+
 
 tic("rowsums")
  x <- rowSums(m)

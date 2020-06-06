@@ -49,6 +49,7 @@ Parallelization with `foreach`
 
 - `foreach` is like a for loop, but is implemented using a binary operator, called `%do%`.
 - The main difference between `foreach` and an old boring for loop is that it returns a value (you can also specify the output format)
+- ! `i = 1:5` instead of `i in 1:5`
 
 .pull-left[
 
@@ -93,37 +94,277 @@ foreach(i = 1:2,.combine = "+") %do% {
 ---
 ## foreach
 
-- The real power of `foreach` is when you combine it with` doParallel`
-- The `doParallel` package is a “parallel backend” for the `foreach` package
+- The real power of `foreach` is when you combine it with `doSNOW` (or `doParallel`)
+- The `doSNOW` package is a “parallel backend” for the `foreach` package
+
+
+```{r eval=FALSE}
+
+cl <- makeSOCKcluster(ncores)  # define cluster
+registerDoSNOW(cl) # start cluster 
+
+res <- foreach(iterator = 1:100,  #define iterator
+              .combine  = "cbind", # define how the output should be combined
+              .packages = c("tidyverse"), #  packages which should be loaded on the workers 
+              ...
+              ) %dopar% {
+                   
+                   # your function goes here 
+                   
+       }
+  
+stopCluster(cl) # stop cluster
+
+```
+
+
 
 
 <!-- *********** NEW SLIDE ************** -->
 ---
 ## Example
 
-- The real power of `foreach` is when you combine it with` doParallel`
-- The `doParallel` package is a “parallel backend” for the `foreach` package
+.pull-left[
 
 
-Cores  | Speed
--------|-------
-No parallelization|dasdad
-asdasd|dasdasd
+```{r eval=FALSE}
+boot_f <- function(nreps=1e4){
+  
+  n  <- nrow(mtcars)
+  rs <- vector(mode="integer",length=nreps)
+  
+  for(reps in 1:nreps){
+    
+    ind  <- sample(n, n, replace=TRUE)
+    temp <- mtcars[ind,]
+    mod  <- lm(mpg~wt+disp,data=temp)
+    
+    
+    rs[reps] <- summary(mod)$r.square
+
+  }
+  
+  return(rs)
+}
+
+```
+
+
+]
+
+.pull-right[
+
+```{r eval=FALSE}
+run_sim  <- function(ncores,nreps) {
+  
+cl <- makeSOCKcluster(ncores) #<<
+registerDoSNOW(cl)#<<
+
+res <- foreach(i = 1:100,
+              .combine = "cbind") %dopar% {
+                   
+                   boot_f(nreps)
+                   
+       }
+  
+stopCluster(cl)#<<
+}
+```
+
+]
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Example
+
+```{r eval=FALSE}
+library(doSNOW)
+library(foreach)
+library(bench)
+
+results <- bench::press(
+            ncores = c(1,4,8,32,60),
+            nreps  = c(1e2,1e5),
+            {
+              bench::mark(
+                sim = run_sim(ncores,nreps)
+              )
+            }
+          )
+```
+
+
+
+Cores             |  100 reps |  100,000 reps | 
+------------------|--------------|--------------|
+1 Core            |          |    67.80 s          |
+4 Cores           |27.7s       |    19.35 s          |
+8 Cores           |79.1       |    12.03 s         |
+32 Cores          |97.2       |     10.31 s         |
+60 Cores          |117.8s       |     16.01 s         |
+
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Foreach
+
+Each iteration should execute computationally-intensive work. Scheduling tasks has overhead, and can exceed the time to complete the work itself for small jobs.
 
 <!-- *********** NEW SLIDE ************** -->
 ---
 ## Adding a progress bar
+
+You can also add a progress bar (very useful)
+
+```{r eval=FALSE}
+iterations <- 8
+
+ncores     <- 4
+cl         <- makeSOCKcluster(ncores)
+  
+pb         <- txtProgressBar(max = iterations, style = 3)#<<
+progress   <- function(n){setTxtProgressBar(pb, n)}#<<
+opts       <- list(progress = progress)#<<
+
+registerDoSNOW(cl)
+
+
+res <- foreach(i = 1:iterations,
+              .combine       = list,
+              .options.snow  = opts #<<
+             ) %dopar% {
+  
+               
+               
+                  boot_f(nreps=5000)
+  
+              }
+
+stopCluster(cl)
+```
+
+
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+class:small
+## nested foreach
+
+
+- You can also use nested `foreach`-loops
+- Example use case: Loop over a simulation design matrix and then repetitions
+
+.pull-left[
+
+```{r message=FALSE, warning=FALSE}
+library(doSNOW)
+library(foreach)
+
+
+# Make Design DF
+n      <- c(5,10,400)
+d      <- c(0,0.2,0.8)
+design <- expand.grid("n" = n, "d" = d)
+
+n_d    <- nrow(design)
+```
+
+]
+
+
+
+.pull-right[
+
+```{r message=FALSE, warning=FALSE}
+# Run Sim
+cl       <- makeSOCKcluster(4)
+registerDoSNOW(cl)
+
+res <- foreach(d = 1:n_d,
+               .combine = "rbind"
+               )  %:% #<<
+          foreach(rep = 1:10,
+                  .combine="c") %dopar% {
+  
+          N <- design[d,"n"]
+          D <- design[d,"d"]
+            
+          x1 <- rnorm(N, 0, 1)
+          x2 <- rnorm(N, D, 1)
+    
+          t <- t.test(x1, x2, var.equal=TRUE)  
+          p <- t$p.value
+          
+          
+}
+
+
+stopCluster(cl)
+
+
+```
+
+]
 
 
 <!-- *********** NEW SLIDE ************** -->
 ---
 ## nested foreach
 
+```{r}
+res <- set_names(as.data.frame(res),paste0("rep",1:10))
+
+
+bind_cols(design,res) %>%
+  kable(.,format="markdown",digits=3)
+  
+```
+
+
+
+
+<!-- *********** NEW SLIDE ************** -->
+---
+## Rcpp in foreach
+
+- You can also use `Rcpp`-functions in `foreach`
+
+```{r eval = FALSE}
+
+## Do not run
+
+
+cl       <- makeSOCKcluster(4)
+registerDoSNOW(cl)
+
+res <- foreach(iter     = 1:10,
+               .noexport=c("your_super_cool_Rcpp"). #<<
+               .combine = "rbind")   %dopar% {
+  
+          source("Scripts/functions/rcpp_functions.R") #<<
+          
+                 
+          your_super_cool_Rcpp()
+          
+}
+
+
+stopCluster(cl)
+
+
+
+```
+
+
 
 
 <!-- *********** NEW SLIDE ************** -->
 ---
 ## Your turn !
+
+- Write a power analysis function 
 
 
 
