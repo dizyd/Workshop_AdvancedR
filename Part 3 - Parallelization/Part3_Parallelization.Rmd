@@ -184,7 +184,7 @@ library(bench)
 
 results <- bench::press(
             ncores = c(1,4,8,32,60),
-            nreps  = c(1e2,1e5),
+            nreps  = c(10,1e3,1e4,1e5),
             {
               bench::mark(
                 sim = run_sim(ncores,nreps)
@@ -195,13 +195,13 @@ results <- bench::press(
 
 
 
-Cores             |  100 reps |  100,000 reps | 
-------------------|--------------|--------------|
-1 Core            |          |    67.80 s          |
-4 Cores           |27.7s       |    19.35 s          |
-8 Cores           |79.1       |    12.03 s         |
-32 Cores          |97.2       |     10.31 s         |
-60 Cores          |117.8s       |     16.01 s         |
+Cores             |  10 reps  |  1,000 reps  |   10,000 reps  |  100,000 reps | 
+------------------|-----------|--------------|----------------|---------------|
+1 Core            |1.08 s     |   1.14   m   | 11.34 m        |     1.86 h    |
+4 Cores           |1.02 s     |   19.30  s   | 3.06 m         |    30.11 m    |
+8 Cores           |17.1 s     |    12.12 s   | 1.67 m         |    16.65 m    |
+32 Cores          |5.89 s     |   10.42  s   | 51.02 s        |     7.29 m    |
+60 Cores          |10.98 s    |   16.22  s   | 57.27 s        |     7.24 m    |
 
 
 
