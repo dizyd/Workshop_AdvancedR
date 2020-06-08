@@ -12,7 +12,7 @@ The workshop consists of three parts:
 The following code can be used to install the packages used in this workshop:
 
 ```r
-wanted.packages <- c("tidyverse","devtools","tictoc","shiny","benchmarkme","bench","data.table")
+wanted.packages <- c("tidyverse","devtools","tictoc","shiny","benchmarkme","bench","data.table","foreach","doSNOW")
   
 # Check what packages need to be installed
 new.packages <- wanted.packages[!(wanted.packages %in% installed.packages()[,"Package"])]
