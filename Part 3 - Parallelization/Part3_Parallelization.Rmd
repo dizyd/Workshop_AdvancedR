@@ -250,77 +250,46 @@ stopCluster(cl)
 <!-- *********** NEW SLIDE ************** -->
 ---
 class:small
-## nested foreach
+## Nested foreach
 
 
 - You can also use nested `foreach`-loops
-- Example use case: Loop over a simulation design matrix and then repetitions
+- Example use case: Loop over a simulation design matrix and then repetitions 
 
-.pull-left[
+
 
 ```{r message=FALSE, warning=FALSE}
 library(doSNOW)
 library(foreach)
 
+# Make Matrix
+m <- matrix(1:2500,nrow=50,ncol=50)
 
-# Make Design DF
-n      <- c(5,10,400)
-d      <- c(0,0.2,0.8)
-design <- expand.grid("n" = n, "d" = d)
-
-n_d    <- nrow(design)
-```
-
-]
-
-
-
-.pull-right[
-
-```{r message=FALSE, warning=FALSE}
-# Run Sim
+# Start Cluster
 cl       <- makeSOCKcluster(4)
 registerDoSNOW(cl)
 
-res <- foreach(d = 1:n_d,
-               .combine = "rbind"
+
+# Run Foreach
+res <- foreach(col      = 1:ncol(m),
+               .combine = "cbind"
                )  %:% #<<
-          foreach(rep = 1:10,
-                  .combine="c") %dopar% {
+          foreach(row      = 1:nrow(m),
+                  .combine = "c") %dopar% {
   
-          N <- design[d,"n"]
-          D <- design[d,"d"]
-            
-          x1 <- rnorm(N, 0, 1)
-          x2 <- rnorm(N, D, 1)
-    
-          t <- t.test(x1, x2, var.equal=TRUE)  
-          p <- t$p.value
-          
+                    m[col,row]^2
           
 }
 
-
+# Stop Cluster
 stopCluster(cl)
 
+# Show Results
+#head(res)
 
 ```
 
-]
 
-
-<!-- *********** NEW SLIDE ************** -->
----
-## nested foreach
-
-```{r}
-res <- set_names(as.data.frame(res),paste0("rep",1:10))
-
-
-bind_cols(design,res) %>%
-  kable(.,format="markdown",digits=3)
-  
-```
 
 
 
@@ -364,7 +333,9 @@ stopCluster(cl)
 ---
 ## Your turn !
 
-- Write a power analysis function 
+- Open the file `foreach_exercise.R`
+- There you find a function to compute the power of a t-test via simulation using two for-loops
+- Your task is it to make the same function with `foreach`
 
 
 

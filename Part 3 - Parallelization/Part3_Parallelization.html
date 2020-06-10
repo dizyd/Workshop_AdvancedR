@@ -268,91 +268,46 @@ stopCluster(cl)
 &lt;!-- *********** NEW SLIDE ************** --&gt;
 ---
 class:small
-## nested foreach
+## Nested foreach
 
 
 - You can also use nested `foreach`-loops
-- Example use case: Loop over a simulation design matrix and then repetitions
+- Example use case: Loop over a simulation design matrix and then repetitions 
 
-.pull-left[
+
 
 
 ```r
 library(doSNOW)
 library(foreach)
 
+# Make Matrix
+m &lt;- matrix(1:2500,nrow=50,ncol=50)
 
-# Make Design DF
-n      &lt;- c(5,10,400)
-d      &lt;- c(0,0.2,0.8)
-design &lt;- expand.grid("n" = n, "d" = d)
-
-n_d    &lt;- nrow(design)
-```
-
-]
-
-
-
-.pull-right[
-
-
-```r
-# Run Sim
+# Start Cluster
 cl       &lt;- makeSOCKcluster(4)
 registerDoSNOW(cl)
 
-res &lt;- foreach(d = 1:n_d,
-               .combine = "rbind"
+
+# Run Foreach
+res &lt;- foreach(col      = 1:ncol(m),
+               .combine = "cbind"
 *              )  %:%
-          foreach(rep = 1:10,
-                  .combine="c") %dopar% {
+          foreach(row      = 1:nrow(m),
+                  .combine = "c") %dopar% {
   
-          N &lt;- design[d,"n"]
-          D &lt;- design[d,"d"]
-            
-          x1 &lt;- rnorm(N, 0, 1)
-          x2 &lt;- rnorm(N, D, 1)
-    
-          t &lt;- t.test(x1, x2, var.equal=TRUE)  
-          p &lt;- t$p.value
-          
+                    m[col,row]^2
           
 }
 
-
+# Stop Cluster
 stopCluster(cl)
-```
 
-]
-
-
-&lt;!-- *********** NEW SLIDE ************** --&gt;
----
-## nested foreach
-
-
-```r
-res &lt;- set_names(as.data.frame(res),paste0("rep",1:10))
-
-
-bind_cols(design,res) %&gt;%
-  kable(.,format="markdown",digits=3)
+# Show Results
+#head(res)
 ```
 
 
-
-|         |   n|   d|  rep1|  rep2|  rep3|  rep4|  rep5|  rep6|  rep7|  rep8|  rep9| rep10|
-|:--------|---:|---:|-----:|-----:|-----:|-----:|-----:|-----:|-----:|-----:|-----:|-----:|
-|result.1 |   5| 0.0| 0.701| 0.240| 0.051| 0.634| 0.028| 0.220| 0.647| 0.426| 0.951| 0.591|
-|result.2 |  10| 0.0| 0.876| 0.029| 0.452| 0.953| 0.104| 0.402| 0.014| 0.102| 0.834| 0.284|
-|result.3 | 400| 0.0| 0.059| 0.913| 0.984| 0.606| 0.820| 0.060| 0.041| 0.065| 0.377| 0.708|
-|result.4 |   5| 0.2| 0.952| 0.324| 0.047| 0.632| 0.875| 0.774| 0.173| 0.408| 0.017| 0.609|
-|result.5 |  10| 0.2| 0.989| 0.649| 0.111| 0.494| 0.611| 0.930| 0.984| 0.983| 0.846| 0.722|
-|result.6 | 400| 0.2| 0.009| 0.067| 0.004| 0.000| 0.003| 0.434| 0.020| 0.103| 0.131| 0.000|
-|result.7 |   5| 0.8| 0.112| 0.102| 0.092| 0.143| 0.352| 0.040| 0.052| 0.257| 0.072| 0.022|
-|result.8 |  10| 0.8| 0.097| 0.031| 0.054| 0.001| 0.070| 0.021| 0.179| 0.045| 0.027| 0.015|
-|result.9 | 400| 0.8| 0.000| 0.000| 0.000| 0.000| 0.000| 0.000| 0.000| 0.000| 0.000| 0.000|
 
 
 
@@ -393,7 +348,9 @@ stopCluster(cl)
 ---
 ## Your turn !
 
-- Write a power analysis function 
+- Open the file `foreach_exercise.R`
+- There you find a function to compute the power of a t-test via simulation using two for-loops
+- Your task is it to make the same function with `foreach`
 
 
 
