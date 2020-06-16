@@ -3,7 +3,7 @@
   <head>
     <title>Advanced R</title>
     <meta charset="utf-8" />
-    <meta name="author" content="Martin Schnuerch" />
+    <meta name="author" content="David Izydorczyk &amp; Martin Schnuerch" />
     <script src="libs/header-attrs/header-attrs.js"></script>
     <link href="libs/remark-css/default.css" rel="stylesheet" />
     <link href="libs/remark-css/default-fonts.css" rel="stylesheet" />
@@ -19,7 +19,7 @@ class: center, middle, inverse, title-slide
 
 # Advanced R
 ## Writing Faster R Code
-### Martin Schnuerch
+### David Izydorczyk &amp; Martin Schnuerch
 ### 17.06.2020
 
 ---
@@ -28,7 +28,7 @@ class: center, middle, inverse, title-slide
 
 
 
-## Some thoughts about optimization
+## Remember the Risk of Optimization
 
 .pull-left[
 
@@ -640,11 +640,16 @@ timing &lt;- bench::mark(
 )
 ```
 
-&lt;div data-pagedtable="false"&gt;
-  &lt;script data-pagedtable-source type="application/json"&gt;
-{"columns":[{"label":["expression"],"name":[1],"type":["list"],"align":["right"]},{"label":["min"],"name":[2],"type":["S3: bench_time"],"align":["right"]},{"label":["median"],"name":[3],"type":["S3: bench_time"],"align":["right"]},{"label":["itr/sec"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["mem_alloc"],"name":[5],"type":["S3: bench_bytes"],"align":["right"]},{"label":["gc/sec"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["n_itr"],"name":[7],"type":["int"],"align":["right"]},{"label":["n_gc"],"name":[8],"type":["dbl"],"align":["right"]}],"data":[{"1":"&lt;language&gt;","2":"4.928519","3":"4.928519","4":"0.2029007","5":"240594704","6":"1.0145035","7":"1","8":"5"},{"1":"&lt;language&gt;","2":"4.889914","3":"4.889914","4":"0.2045026","5":"240591528","6":"1.2270153","7":"1","8":"6"},{"1":"&lt;language&gt;","2":"5.061859","3":"5.061859","4":"0.1975559","5":"241041680","6":"1.1853353","7":"1","8":"6"},{"1":"&lt;language&gt;","2":"1.072003","3":"1.072003","4":"0.9328336","5":"41566976","6":"0.9328336","7":"1","8":"1"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
-  &lt;/script&gt;
-&lt;/div&gt;
+
+```
+## # A tibble: 4 x 6
+##   expression      min   median `itr/sec` mem_alloc `gc/sec`
+##   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;
+## 1 loop          4.66s    4.66s     0.214   229.4MB    1.07 
+## 2 serial        4.68s    4.68s     0.214   229.4MB    1.28 
+## 3 serial2       4.65s    4.65s     0.215   229.9MB    1.29 
+## 4 parallel      1.04s    1.04s     0.959    39.6MB    0.959
+```
 
 
 &lt;!-- *********** HEADING ************** --&gt;
@@ -697,8 +702,8 @@ The problem is simple to address with vectorization:
 
 
 ```r
-pwr_binom_r &lt;- function (p0, p1, alpha, beta, nlow=1, nup=1000){
-  n &lt;- nlow:nup
+pwr_binom_r &lt;- function (p0, p1, alpha, beta, nLow=1, nUp=10000){
+  n &lt;- nLow:nUp
   crit &lt;- qbinom(1 - alpha, n, p0)
   b &lt;- pbinom(crit, n, p1)
   i &lt;- which.max(b &lt;= beta)
@@ -725,14 +730,16 @@ A loop can stop as soon as it finds the correct value. A vectorized function can
 ---
 ## Using C++ in R
 
-The implementation of C++ in R is straightforward with the following package:
+The implementation of C++ in R is straightforward. We need the following package:
 
 
 ```r
 library(Rcpp)
 ```
 
-With this package, we can directly create C++ function from within our R script.
+and a C++ compiler (Windows: Rtools; Mac:Xcode).
+
+We can then directly create C++ function from within our R script.
 
 
 ```r
@@ -760,7 +767,217 @@ The function is now available from the Global Environment.
 
 Making you C++ experts is beyond the scope of this workshop (and my C++ skills), but a few basics (and differences between C++ and R) are useful to remember:
 
-- 
+- All statements end with `;` ("end of line")
+- When creating an object, we explicitly define its type (and it matters!)
+    - `bool`; `LogicalVector` 
+    - `int`; `IntegerVector`
+    - `double`; `NumericVector`
+    - `String`; `CharacterVector` 
+- When creating a function, we don't need the assignment operator (`=`)
+- Vector indices start with 0!
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Outsourcing C++
+
+Instead of including  C++ in our script, we can write stand-alone C++ scripts and source them:
+
+
+```r
+sourceCpp("script.cpp")
+```
+
+Write the script in an editor that supports C++. RStudio, for example...
+
+
+.center[
+
+&lt;img src="images/startcpp.png", width="60%"&gt;
+
+
+]
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## A .cpp Script
+
+.center[
+
+&lt;img src="images/cpp.png", width="75%"&gt;
+
+
+]
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## An example
+
+Let's create a simple function that creates an integer vector with defined end points:
+
+
+```r
+#include &lt;Rcpp.h&gt;
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+NumericVector seqC(int x, int y) {
+  
+  int len = y - x + 1;
+  NumericVector out(len);
+  
+  for(int i = 0; i &lt; len; i++) {
+    out[i] = x;
+    x++;
+  }
+  return out;
+}
+```
+
+
+```r
+sourceCpp("subfiles/seqC.cpp")
+seqC(1, 10)
+```
+
+```
+##  [1]  1  2  3  4  5  6  7  8  9 10
+```
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Benchmarking
+
+Of course, it makes little sense to recreate functions that already exist. Built-in functions are highly optimized. It's basically impossible to beat that:
+
+
+```r
+timing &lt;- bench::mark(
+  R = 1:1000,
+  R2 = seq(1, 1000, 1),
+  cpp = seqC(1, 1000),
+  iterations = 1000
+)
+```
+
+
+```r
+timing[, 1:8]
+```
+
+```
+## # A tibble: 3 x 6
+##   expression      min   median `itr/sec` mem_alloc `gc/sec`
+##   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;
+## 1 R                 0    200ns  4158004.        0B        0
+## 2 R2             22us   26.5us    35329.    19.7KB        0
+## 3 cpp           2.6us    3.2us   305241.      16KB        0
+```
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+class: small
+## Power Analysis Revisited
+
+
+
+```r
+#include &lt;Rcpp.h&gt;
+using namespace Rcpp;
+using namespace R;
+
+
+// [[Rcpp::export("pwr_binom_cpp")]]
+NumericVector pwr_binom(double p0, double p1, double alpha, double beta, int nLow = 1, int nUp = 1000000){
+  
+  NumericVector out(2);
+  int n = nLow;
+  int c;
+  double b;
+  
+  do {
+    c = R::qbinom(1 - alpha, n, p0, true, false);
+    b = R::pbinom(c, n, p1, true, false);
+    n++;
+  } while (n &lt; nUp &amp;&amp; b &gt; beta);
+  
+  if (b &lt;= beta)
+  {
+    out[0] = n - 1;
+    out[1] = c + 1;
+  } else
+  {
+    out = NAN;
+  }
+  
+  return out;
+}
+```
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Final Benchmarking
+
+How does the C++ function compare to our vectorized solution?
+
+
+```r
+p0 &lt;- .5
+p1 &lt;- .55
+alpha &lt;- beta &lt;- .05
+
+timing &lt;- bench::mark(
+  cpp = pwr_binom_cpp(p0, p1, alpha, beta),
+  R = pwr_binom_r(p0, p1, alpha, beta),
+  iterations = 500
+)
+```
+
+
+```r
+timing
+```
+
+```
+## # A tibble: 2 x 6
+##   expression      min   median `itr/sec` mem_alloc `gc/sec`
+##   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;
+## 1 cpp           1.7ms    1.8ms     537.     2.49KB    0    
+## 2 R            16.4ms   17.8ms      55.3  356.72KB    0.446
+```
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Final Benchmarking
+
+
+```r
+autoplot(timing) + theme_bw() + theme(legend.position = "none")
+```
+
+&lt;img src="Part2_Vectorization_Rcpp_files/figure-html/unnamed-chunk-42-1.png" style="display: block; margin: auto;" /&gt;
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Your Turn!
+
+- Open the file `Rcpp_exercise.R` in the `Exercise` folder.
+- Write some nice and efficient C++ code.
+
+
+.center[
+
+&lt;img src="images/work2.jpg", width="55%"&gt;
+
+
+]
+
     </textarea>
 <style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
 <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>

@@ -1,7 +1,7 @@
 ---
 title: "Advanced R"
 subtitle: "Writing Faster R Code"
-author: "Martin Schnuerch"
+author: "David Izydorczyk & Martin Schnuerch"
 date: "17.06.2020"
 output:
   xaringan::moon_reader:
@@ -28,7 +28,7 @@ sourceCpp("subfiles/pwr_binom.cpp")
 ```
 
 
-## Some thoughts about optimization
+## Remember the Risk of Optimization
 
 .pull-left[
 
@@ -522,7 +522,7 @@ cl <- makeCluster(8)
 registerDoParallel(cl)
 ```
 
-```{r cache=T, message = FALSE, warning=FALSE}
+```{r message = FALSE, warning=FALSE}
 ns <- seq(50, 5000, 5)
 nRep <- 10000
 
@@ -591,8 +591,8 @@ The required sample size for $\alpha$ = $\beta$ = .05 is $N = 108,339$. A loop m
 The problem is simple to address with vectorization:
 
 ```{r}
-pwr_binom_r <- function (p0, p1, alpha, beta, nlow=1, nup=1000){
-  n <- nlow:nup
+pwr_binom_r <- function (p0, p1, alpha, beta, nLow=1, nUp=10000){
+  n <- nLow:nUp
   crit <- qbinom(1 - alpha, n, p0)
   b <- pbinom(crit, n, p1)
   i <- which.max(b <= beta)
@@ -619,13 +619,15 @@ A loop can stop as soon as it finds the correct value. A vectorized function can
 ---
 ## Using C++ in R
 
-The implementation of C++ in R is straightforward with the following package:
+The implementation of C++ in R is straightforward. We need the following package:
 
 ```{r, eval=F}
 library(Rcpp)
 ```
 
-With this package, we can directly create C++ function from within our R script.
+and a C++ compiler (Windows: Rtools; Mac:Xcode).
+
+We can then directly create C++ function from within our R script.
 
 ```{r echo=T}
 cppFunction('String cpp_demo() {
@@ -647,4 +649,182 @@ The function is now available from the Global Environment.
 
 Making you C++ experts is beyond the scope of this workshop (and my C++ skills), but a few basics (and differences between C++ and R) are useful to remember:
 
-- 
+- All statements end with `;` ("end of line")
+- When creating an object, we explicitly define its type (and it matters!)
+    - `bool`; `LogicalVector` 
+    - `int`; `IntegerVector`
+    - `double`; `NumericVector`
+    - `String`; `CharacterVector` 
+- When creating a function, we don't need the assignment operator (`=`)
+- Vector indices start with 0!
+
+
+<!-- *********** HEADING ************** -->
+---
+## Outsourcing C++
+
+Instead of including  C++ in our script, we can write stand-alone C++ scripts and source them:
+
+```{r eval=F}
+sourceCpp("script.cpp")
+```
+
+Write the script in an editor that supports C++. RStudio, for example...
+
+
+.center[
+
+<img src="images/startcpp.png", width="60%">
+
+
+]
+
+
+<!-- *********** HEADING ************** -->
+---
+## A .cpp Script
+
+.center[
+
+<img src="images/cpp.png", width="75%">
+
+
+]
+
+
+<!-- *********** HEADING ************** -->
+---
+## An example
+
+Let's create a simple function that creates an integer vector with defined end points:
+
+```{r eval = F}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+NumericVector seqC(int x, int y) {
+  
+  int len = y - x + 1;
+  NumericVector out(len);
+  
+  for(int i = 0; i < len; i++) {
+    out[i] = x;
+    x++;
+  }
+  return out;
+}
+```
+
+```{r}
+sourceCpp("subfiles/seqC.cpp")
+seqC(1, 10)
+```
+
+
+<!-- *********** HEADING ************** -->
+---
+## Benchmarking
+
+Of course, it makes little sense to recreate functions that already exist. Built-in functions are highly optimized. It's basically impossible to beat that:
+
+```{r}
+timing <- bench::mark(
+  R = 1:1000,
+  R2 = seq(1, 1000, 1),
+  cpp = seqC(1, 1000),
+  iterations = 1000
+)
+```
+
+```{r}
+timing[, 1:8]
+```
+
+
+<!-- *********** HEADING ************** -->
+---
+class: small
+## Power Analysis Revisited
+
+
+```{r eval=F}
+#include <Rcpp.h>
+using namespace Rcpp;
+using namespace R;
+
+
+// [[Rcpp::export("pwr_binom_cpp")]]
+NumericVector pwr_binom(double p0, double p1, double alpha, double beta, int nLow = 1, int nUp = 1000000){
+  
+  NumericVector out(2);
+  int n = nLow;
+  int c;
+  double b;
+  
+  do {
+    c = R::qbinom(1 - alpha, n, p0, true, false);
+    b = R::pbinom(c, n, p1, true, false);
+    n++;
+  } while (n < nUp && b > beta);
+  
+  if (b <= beta)
+  {
+    out[0] = n - 1;
+    out[1] = c + 1;
+  } else
+  {
+    out = NAN;
+  }
+  
+  return out;
+}
+```
+
+
+<!-- *********** HEADING ************** -->
+---
+## Final Benchmarking
+
+How does the C++ function compare to our vectorized solution?
+
+```{r}
+p0 <- .5
+p1 <- .55
+alpha <- beta <- .05
+
+timing <- bench::mark(
+  cpp = pwr_binom_cpp(p0, p1, alpha, beta),
+  R = pwr_binom_r(p0, p1, alpha, beta),
+  iterations = 500
+)
+```
+
+```{r}
+timing
+```
+
+<!-- *********** HEADING ************** -->
+---
+## Final Benchmarking
+
+```{r fig.width=12, fig.asp = .6, fig.align="center"}
+autoplot(timing) + theme_bw() + theme(legend.position = "none")
+```
+
+
+<!-- *********** HEADING ************** -->
+---
+## Your Turn!
+
+- Open the file `Rcpp_exercise.R` in the `Exercise` folder.
+- Write some nice and efficient C++ code.
+
+
+.center[
+
+<img src="images/work2.jpg", width="55%">
+
+
+]
+
