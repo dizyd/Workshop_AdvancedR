@@ -1,8 +1,8 @@
 ---
 title: "Advanced R"
 subtitle: "Writing Faster R Code"
-author: "David Izydorczyk"
-date: "12.05.2020"
+author: "Dr. Martin Schnürch & David Izydorczyk"
+date: "17.06.2020"
 output:
   xaringan::moon_reader:
     lib_dir: libs
@@ -32,14 +32,7 @@ library(foreach)
 class: heading,middle
 
 
-Part 3: Parallelization
-
-
-<!-- *********** HEADING ************** -->
----
-class: heading,middle
-
-Parallelization with `foreach`
+Part 3: Parallelization with `foreach`
 
 
 
