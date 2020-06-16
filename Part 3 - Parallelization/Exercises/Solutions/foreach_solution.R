@@ -72,8 +72,8 @@ foreach_fun <- function(){
   cl       <- makeSOCKcluster(4)
   registerDoSNOW(cl)
   
-  res <- foreach(d        = 1:n_d,
-                   .combine = "rbind")  %:% #<<
+  res <- foreach(d       = 1:n_d,
+                .combine = "rbind")  %:% #<<
               foreach(rep      = 1:n_reps,
                       .combine = "c") %dopar% {
         
