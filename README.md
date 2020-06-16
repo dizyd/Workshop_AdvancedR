@@ -22,6 +22,12 @@ if(length(new.packages)) install.packages(new.packages,dependencies = TRUE)
 sapply(wanted.packages, require, character.only = TRUE)
 ```
 
+You should also install Rtools
+
+see https://cran.r-project.org/bin/windows/Rtools/ 
+
+or https://www.rdocumentation.org/packages/installr/versions/0.22.0/topics/install.Rtools
+
 
 
 **Note:** The workshop is based on R 4.0.0. 
