@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Advanced R</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Martin Schnuerch" />
+    <script src="libs/header-attrs/header-attrs.js"></script>
+    <link href="libs/remark-css/default.css" rel="stylesheet" />
+    <link href="libs/remark-css/default-fonts.css" rel="stylesheet" />
+    <link href="libs/pagedtable/css/pagedtable.css" rel="stylesheet" />
+    <script src="libs/pagedtable/js/pagedtable.js"></script>
+    <link rel="stylesheet" href="subfiles\my-theme.css" type="text/css" />
+    <link rel="stylesheet" href="subfiles\my-fonts.css" type="text/css" />
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# Advanced R
+## Writing Faster R Code
+### Martin Schnuerch
+### 17.06.2020
+
+---
+
+
+
+
+
+## Some thoughts about optimization
+
+.pull-left[
+
+- Can save a lot of time, but also can waste a lot of time
+
+- There is often no single-best solution
+
+- Still often worth to profile your functions or simulation code
+
+
+]
+.pull-right[
+
+&lt;img src="images/automation.png", width="55%"&gt;
+
+&lt;img src="images/efficiency.png", width="55%"&gt;
+
+from [xkcd](https://xkcd.com/)
+]
+
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+class: heading,middle
+
+
+Part 2: Vectorization &amp;  Rcpp
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Working with Vectors
+
+Many functions take vector input and return single result:
+
+
+```r
+x &lt;- c(1,2,3,4,5,6)
+mean(x)
+```
+
+```
+## [1] 3.5
+```
+
+```r
+t.test(x)
+```
+
+```
+## 
+## 	One Sample t-test
+## 
+## data:  x
+## t = 4.5826, df = 5, p-value = 0.005934
+## alternative hypothesis: true mean is not equal to 0
+## 95 percent confidence interval:
+##  1.536686 5.463314
+## sample estimates:
+## mean of x 
+##       3.5
+```
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Working with Elements
+
+Sometimes, we want to apply a function to elements of an object
+
+**Example**: Simple recognition experiment (*N* = 10). Before data analysis we exclude participants whose accuracy does not exceed chance level (one-sided binomial test).
+
+**The data**:
+
+&lt;div data-pagedtable="false"&gt;
+  &lt;script data-pagedtable-source type="application/json"&gt;
+{"columns":[{"label":["X1"],"name":[1],"type":["int"],"align":["right"]},{"label":["X2"],"name":[2],"type":["int"],"align":["right"]},{"label":["X3"],"name":[3],"type":["int"],"align":["right"]},{"label":["X4"],"name":[4],"type":["int"],"align":["right"]},{"label":["X5"],"name":[5],"type":["int"],"align":["right"]},{"label":["X6"],"name":[6],"type":["int"],"align":["right"]},{"label":["X7"],"name":[7],"type":["int"],"align":["right"]},{"label":["X8"],"name":[8],"type":["int"],"align":["right"]},{"label":["X9"],"name":[9],"type":["int"],"align":["right"]},{"label":["X10"],"name":[10],"type":["int"],"align":["right"]},{"label":["X11"],"name":[11],"type":["int"],"align":["right"]},{"label":["X12"],"name":[12],"type":["int"],"align":["right"]},{"label":["X13"],"name":[13],"type":["int"],"align":["right"]},{"label":["X14"],"name":[14],"type":["int"],"align":["right"]},{"label":["X15"],"name":[15],"type":["int"],"align":["right"]},{"label":["X16"],"name":[16],"type":["int"],"align":["right"]},{"label":["X17"],"name":[17],"type":["int"],"align":["right"]},{"label":["X18"],"name":[18],"type":["int"],"align":["right"]},{"label":["X19"],"name":[19],"type":["int"],"align":["right"]},{"label":["X20"],"name":[20],"type":["int"],"align":["right"]},{"label":["X21"],"name":[21],"type":["int"],"align":["right"]},{"label":["X22"],"name":[22],"type":["int"],"align":["right"]},{"label":["X23"],"name":[23],"type":["int"],"align":["right"]},{"label":["X24"],"name":[24],"type":["int"],"align":["right"]},{"label":["X25"],"name":[25],"type":["int"],"align":["right"]},{"label":["X26"],"name":[26],"type":["int"],"align":["right"]},{"label":["X27"],"name":[27],"type":["int"],"align":["right"]},{"label":["X28"],"name":[28],"type":["int"],"align":["right"]},{"label":["X29"],"name":[29],"type":["int"],"align":["right"]},{"label":["X30"],"name":[30],"type":["int"],"align":["right"]},{"label":["X31"],"name":[31],"type":["int"],"align":["right"]},{"label":["X32"],"name":[32],"type":["int"],"align":["right"]},{"label":["X33"],"name":[33],"type":["int"],"align":["right"]},{"label":["X34"],"name":[34],"type":["int"],"align":["right"]},{"label":["X35"],"name":[35],"type":["int"],"align":["right"]},{"label":["X36"],"name":[36],"type":["int"],"align":["right"]},{"label":["X37"],"name":[37],"type":["int"],"align":["right"]},{"label":["X38"],"name":[38],"type":["int"],"align":["right"]},{"label":["X39"],"name":[39],"type":["int"],"align":["right"]},{"label":["X40"],"name":[40],"type":["int"],"align":["right"]},{"label":["X41"],"name":[41],"type":["int"],"align":["right"]},{"label":["X42"],"name":[42],"type":["int"],"align":["right"]},{"label":["X43"],"name":[43],"type":["int"],"align":["right"]},{"label":["X44"],"name":[44],"type":["int"],"align":["right"]},{"label":["X45"],"name":[45],"type":["int"],"align":["right"]},{"label":["X46"],"name":[46],"type":["int"],"align":["right"]},{"label":["X47"],"name":[47],"type":["int"],"align":["right"]},{"label":["X48"],"name":[48],"type":["int"],"align":["right"]},{"label":["X49"],"name":[49],"type":["int"],"align":["right"]},{"label":["X50"],"name":[50],"type":["int"],"align":["right"]},{"label":["X51"],"name":[51],"type":["int"],"align":["right"]},{"label":["X52"],"name":[52],"type":["int"],"align":["right"]},{"label":["X53"],"name":[53],"type":["int"],"align":["right"]},{"label":["X54"],"name":[54],"type":["int"],"align":["right"]},{"label":["X55"],"name":[55],"type":["int"],"align":["right"]},{"label":["X56"],"name":[56],"type":["int"],"align":["right"]},{"label":["X57"],"name":[57],"type":["int"],"align":["right"]},{"label":["X58"],"name":[58],"type":["int"],"align":["right"]},{"label":["X59"],"name":[59],"type":["int"],"align":["right"]},{"label":["X60"],"name":[60],"type":["int"],"align":["right"]},{"label":["X61"],"name":[61],"type":["int"],"align":["right"]},{"label":["X62"],"name":[62],"type":["int"],"align":["right"]},{"label":["X63"],"name":[63],"type":["int"],"align":["right"]},{"label":["X64"],"name":[64],"type":["int"],"align":["right"]},{"label":["X65"],"name":[65],"type":["int"],"align":["right"]},{"label":["X66"],"name":[66],"type":["int"],"align":["right"]},{"label":["X67"],"name":[67],"type":["int"],"align":["right"]},{"label":["X68"],"name":[68],"type":["int"],"align":["right"]},{"label":["X69"],"name":[69],"type":["int"],"align":["right"]},{"label":["X70"],"name":[70],"type":["int"],"align":["right"]},{"label":["X71"],"name":[71],"type":["int"],"align":["right"]},{"label":["X72"],"name":[72],"type":["int"],"align":["right"]},{"label":["X73"],"name":[73],"type":["int"],"align":["right"]},{"label":["X74"],"name":[74],"type":["int"],"align":["right"]},{"label":["X75"],"name":[75],"type":["int"],"align":["right"]},{"label":["X76"],"name":[76],"type":["int"],"align":["right"]},{"label":["X77"],"name":[77],"type":["int"],"align":["right"]},{"label":["X78"],"name":[78],"type":["int"],"align":["right"]},{"label":["X79"],"name":[79],"type":["int"],"align":["right"]},{"label":["X80"],"name":[80],"type":["int"],"align":["right"]},{"label":["X81"],"name":[81],"type":["int"],"align":["right"]},{"label":["X82"],"name":[82],"type":["int"],"align":["right"]},{"label":["X83"],"name":[83],"type":["int"],"align":["right"]},{"label":["X84"],"name":[84],"type":["int"],"align":["right"]},{"label":["X85"],"name":[85],"type":["int"],"align":["right"]},{"label":["X86"],"name":[86],"type":["int"],"align":["right"]},{"label":["X87"],"name":[87],"type":["int"],"align":["right"]},{"label":["X88"],"name":[88],"type":["int"],"align":["right"]},{"label":["X89"],"name":[89],"type":["int"],"align":["right"]},{"label":["X90"],"name":[90],"type":["int"],"align":["right"]},{"label":["X91"],"name":[91],"type":["int"],"align":["right"]},{"label":["X92"],"name":[92],"type":["int"],"align":["right"]},{"label":["X93"],"name":[93],"type":["int"],"align":["right"]},{"label":["X94"],"name":[94],"type":["int"],"align":["right"]},{"label":["X95"],"name":[95],"type":["int"],"align":["right"]},{"label":["X96"],"name":[96],"type":["int"],"align":["right"]},{"label":["X97"],"name":[97],"type":["int"],"align":["right"]},{"label":["X98"],"name":[98],"type":["int"],"align":["right"]},{"label":["X99"],"name":[99],"type":["int"],"align":["right"]},{"label":["X100"],"name":[100],"type":["int"],"align":["right"]}],"data":[{"1":"0","2":"0","3":"0","4":"1","5":"1","6":"0","7":"1","8":"0","9":"0","10":"1","11":"1","12":"0","13":"1","14":"1","15":"1","16":"1","17":"0","18":"0","19":"1","20":"1","21":"1","22":"1","23":"1","24":"1","25":"0","26":"1","27":"1","28":"0","29":"1","30":"1","31":"0","32":"0","33":"1","34":"0","35":"0","36":"1","37":"0","38":"0","39":"0","40":"1","41":"1","42":"1","43":"0","44":"0","45":"1","46":"0","47":"1","48":"1","49":"1","50":"1","51":"1","52":"1","53":"0","54":"1","55":"1","56":"1","57":"0","58":"0","59":"0","60":"1","61":"1","62":"0","63":"1","64":"1","65":"1","66":"0","67":"1","68":"1","69":"0","70":"1","71":"0","72":"0","73":"1","74":"1","75":"1","76":"1","77":"1","78":"0","79":"1","80":"0","81":"1","82":"0","83":"0","84":"1","85":"1","86":"1","87":"0","88":"0","89":"0","90":"0","91":"1","92":"1","93":"1","94":"0","95":"0","96":"0","97":"1","98":"1","99":"1","100":"0"},{"1":"0","2":"1","3":"1","4":"1","5":"0","6":"0","7":"1","8":"1","9":"0","10":"0","11":"1","12":"0","13":"1","14":"0","15":"0","16":"1","17":"1","18":"1","19":"1","20":"1","21":"1","22":"1","23":"1","24":"0","25":"0","26":"0","27":"1","28":"1","29":"1","30":"0","31":"1","32":"0","33":"0","34":"1","35":"1","36":"0","37":"0","38":"1","39":"1","40":"1","41":"1","42":"0","43":"1","44":"1","45":"0","46":"1","47":"1","48":"1","49":"1","50":"0","51":"1","52":"1","53":"1","54":"0","55":"1","56":"1","57":"0","58":"1","59":"1","60":"1","61":"0","62":"0","63":"0","64":"1","65":"0","66":"0","67":"0","68":"0","69":"1","70":"0","71":"0","72":"1","73":"1","74":"0","75":"0","76":"0","77":"1","78":"1","79":"0","80":"0","81":"1","82":"1","83":"1","84":"0","85":"1","86":"0","87":"0","88":"0","89":"1","90":"1","91":"0","92":"1","93":"1","94":"0","95":"1","96":"0","97":"1","98":"0","99":"1","100":"1"},{"1":"1","2":"1","3":"0","4":"1","5":"0","6":"0","7":"0","8":"0","9":"1","10":"0","11":"0","12":"0","13":"1","14":"1","15":"0","16":"1","17":"0","18":"1","19":"1","20":"0","21":"0","22":"1","23":"0","24":"1","25":"1","26":"0","27":"1","28":"1","29":"1","30":"0","31":"1","32":"1","33":"1","34":"0","35":"1","36":"0","37":"0","38":"1","39":"0","40":"1","41":"1","42":"1","43":"1","44":"1","45":"1","46":"1","47":"1","48":"0","49":"1","50":"1","51":"1","52":"1","53":"1","54":"1","55":"1","56":"0","57":"0","58":"0","59":"1","60":"1","61":"0","62":"1","63":"1","64":"0","65":"0","66":"1","67":"1","68":"1","69":"1","70":"1","71":"0","72":"0","73":"1","74":"1","75":"1","76":"1","77":"1","78":"0","79":"1","80":"1","81":"0","82":"1","83":"0","84":"1","85":"1","86":"0","87":"1","88":"0","89":"1","90":"0","91":"0","92":"0","93":"1","94":"1","95":"1","96":"1","97":"1","98":"1","99":"0","100":"1"},{"1":"1","2":"1","3":"1","4":"1","5":"1","6":"1","7":"1","8":"1","9":"1","10":"0","11":"0","12":"1","13":"1","14":"0","15":"1","16":"1","17":"1","18":"0","19":"0","20":"0","21":"1","22":"1","23":"0","24":"0","25":"0","26":"0","27":"1","28":"1","29":"1","30":"0","31":"1","32":"1","33":"1","34":"0","35":"1","36":"1","37":"1","38":"1","39":"1","40":"1","41":"1","42":"1","43":"1","44":"0","45":"1","46":"1","47":"1","48":"0","49":"0","50":"1","51":"0","52":"0","53":"1","54":"0","55":"1","56":"0","57":"0","58":"0","59":"1","60":"1","61":"1","62":"1","63":"0","64":"1","65":"0","66":"0","67":"1","68":"0","69":"0","70":"1","71":"1","72":"1","73":"0","74":"1","75":"0","76":"1","77":"0","78":"1","79":"1","80":"0","81":"1","82":"0","83":"1","84":"1","85":"1","86":"0","87":"1","88":"1","89":"1","90":"0","91":"1","92":"1","93":"1","94":"0","95":"1","96":"1","97":"1","98":"1","99":"1","100":"1"},{"1":"0","2":"1","3":"0","4":"1","5":"1","6":"0","7":"1","8":"1","9":"1","10":"1","11":"0","12":"0","13":"1","14":"1","15":"1","16":"1","17":"1","18":"1","19":"0","20":"0","21":"1","22":"1","23":"0","24":"0","25":"1","26":"0","27":"1","28":"1","29":"1","30":"1","31":"1","32":"1","33":"0","34":"0","35":"1","36":"1","37":"1","38":"0","39":"0","40":"1","41":"1","42":"1","43":"1","44":"0","45":"0","46":"1","47":"0","48":"1","49":"1","50":"1","51":"0","52":"1","53":"0","54":"1","55":"0","56":"0","57":"0","58":"0","59":"1","60":"0","61":"1","62":"1","63":"0","64":"1","65":"0","66":"1","67":"1","68":"1","69":"1","70":"0","71":"0","72":"1","73":"0","74":"0","75":"0","76":"1","77":"1","78":"1","79":"1","80":"0","81":"1","82":"1","83":"1","84":"1","85":"1","86":"1","87":"0","88":"1","89":"0","90":"1","91":"0","92":"0","93":"0","94":"1","95":"0","96":"1","97":"1","98":"1","99":"0","100":"0"},{"1":"0","2":"1","3":"1","4":"1","5":"0","6":"0","7":"1","8":"0","9":"1","10":"0","11":"1","12":"1","13":"1","14":"0","15":"1","16":"1","17":"0","18":"0","19":"1","20":"1","21":"0","22":"1","23":"1","24":"1","25":"0","26":"0","27":"0","28":"1","29":"1","30":"1","31":"0","32":"1","33":"0","34":"1","35":"0","36":"0","37":"1","38":"1","39":"1","40":"1","41":"0","42":"1","43":"0","44":"1","45":"1","46":"1","47":"1","48":"0","49":"0","50":"1","51":"0","52":"1","53":"1","54":"1","55":"0","56":"1","57":"1","58":"0","59":"0","60":"0","61":"0","62":"1","63":"1","64":"1","65":"1","66":"1","67":"0","68":"1","69":"1","70":"1","71":"0","72":"1","73":"1","74":"1","75":"1","76":"0","77":"0","78":"1","79":"0","80":"0","81":"0","82":"1","83":"1","84":"0","85":"1","86":"1","87":"1","88":"0","89":"0","90":"0","91":"1","92":"1","93":"1","94":"1","95":"1","96":"1","97":"1","98":"1","99":"0","100":"0"},{"1":"0","2":"1","3":"1","4":"0","5":"0","6":"0","7":"1","8":"1","9":"1","10":"1","11":"1","12":"0","13":"0","14":"1","15":"1","16":"0","17":"1","18":"0","19":"1","20":"0","21":"1","22":"0","23":"1","24":"1","25":"1","26":"1","27":"0","28":"1","29":"1","30":"1","31":"1","32":"0","33":"0","34":"1","35":"0","36":"1","37":"1","38":"0","39":"1","40":"0","41":"0","42":"0","43":"1","44":"1","45":"1","46":"0","47":"1","48":"0","49":"0","50":"0","51":"1","52":"0","53":"1","54":"0","55":"1","56":"1","57":"1","58":"1","59":"1","60":"1","61":"0","62":"1","63":"1","64":"1","65":"1","66":"1","67":"1","68":"0","69":"0","70":"1","71":"1","72":"1","73":"1","74":"0","75":"1","76":"0","77":"1","78":"1","79":"1","80":"0","81":"1","82":"0","83":"1","84":"1","85":"1","86":"1","87":"1","88":"1","89":"0","90":"1","91":"1","92":"1","93":"1","94":"1","95":"1","96":"1","97":"1","98":"0","99":"0","100":"1"},{"1":"0","2":"0","3":"0","4":"1","5":"0","6":"0","7":"0","8":"0","9":"0","10":"1","11":"0","12":"0","13":"1","14":"1","15":"1","16":"1","17":"0","18":"0","19":"1","20":"0","21":"1","22":"1","23":"0","24":"1","25":"1","26":"0","27":"1","28":"0","29":"1","30":"1","31":"0","32":"1","33":"1","34":"0","35":"1","36":"1","37":"1","38":"1","39":"0","40":"0","41":"0","42":"0","43":"0","44":"1","45":"0","46":"1","47":"0","48":"1","49":"1","50":"1","51":"1","52":"0","53":"1","54":"1","55":"0","56":"1","57":"0","58":"1","59":"1","60":"0","61":"0","62":"1","63":"1","64":"1","65":"1","66":"1","67":"1","68":"1","69":"0","70":"0","71":"1","72":"1","73":"1","74":"0","75":"0","76":"1","77":"1","78":"1","79":"0","80":"1","81":"1","82":"1","83":"0","84":"1","85":"0","86":"0","87":"0","88":"1","89":"0","90":"1","91":"1","92":"1","93":"0","94":"0","95":"1","96":"1","97":"0","98":"0","99":"0","100":"1"},{"1":"0","2":"1","3":"1","4":"0","5":"1","6":"0","7":"0","8":"1","9":"0","10":"0","11":"1","12":"1","13":"1","14":"0","15":"1","16":"1","17":"0","18":"1","19":"1","20":"1","21":"1","22":"0","23":"1","24":"1","25":"1","26":"1","27":"0","28":"0","29":"1","30":"0","31":"0","32":"0","33":"0","34":"1","35":"0","36":"0","37":"0","38":"0","39":"1","40":"1","41":"0","42":"0","43":"1","44":"0","45":"0","46":"0","47":"0","48":"1","49":"0","50":"1","51":"0","52":"1","53":"0","54":"1","55":"1","56":"1","57":"1","58":"1","59":"1","60":"1","61":"1","62":"1","63":"1","64":"0","65":"1","66":"1","67":"1","68":"0","69":"1","70":"1","71":"1","72":"1","73":"1","74":"0","75":"1","76":"1","77":"1","78":"1","79":"0","80":"0","81":"1","82":"0","83":"1","84":"0","85":"0","86":"0","87":"1","88":"1","89":"0","90":"0","91":"1","92":"1","93":"0","94":"0","95":"1","96":"1","97":"1","98":"1","99":"0","100":"0"},{"1":"1","2":"1","3":"0","4":"0","5":"0","6":"1","7":"0","8":"1","9":"1","10":"1","11":"0","12":"1","13":"1","14":"1","15":"0","16":"1","17":"0","18":"1","19":"1","20":"1","21":"0","22":"1","23":"1","24":"1","25":"1","26":"0","27":"1","28":"1","29":"1","30":"1","31":"0","32":"1","33":"0","34":"1","35":"1","36":"0","37":"1","38":"1","39":"1","40":"1","41":"1","42":"1","43":"1","44":"1","45":"0","46":"1","47":"0","48":"1","49":"0","50":"0","51":"1","52":"0","53":"1","54":"0","55":"1","56":"0","57":"0","58":"0","59":"0","60":"1","61":"1","62":"1","63":"1","64":"1","65":"1","66":"0","67":"1","68":"0","69":"0","70":"1","71":"1","72":"0","73":"0","74":"1","75":"1","76":"1","77":"1","78":"0","79":"1","80":"1","81":"1","82":"1","83":"1","84":"0","85":"0","86":"1","87":"1","88":"1","89":"0","90":"1","91":"1","92":"1","93":"0","94":"0","95":"1","96":"1","97":"0","98":"0","99":"1","100":"1"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  &lt;/script&gt;
+&lt;/div&gt;
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## A Marker of R Experience
+
+**The novice:**
+
+
+```r
+n &lt;- ncol(x)
+test1 &lt;- binom.test(x = sum(x[1,]), n = n, p = .5, alternative = "greater")
+test2 &lt;- binom.test(x = sum(x[2,]), n = n, p = .5, alternative = "greater")
+test3 &lt;- binom.test(x = sum(x[3,]), n = n, p = .5, alternative = "greater")
+...
+test1
+```
+
+```
+## 
+## 	Exact binomial test
+## 
+## data:  sum(x[1, ]) and n
+## number of successes = 58, number of trials = 100, p-value = 0.06661
+## alternative hypothesis: true probability of success is greater than 0.5
+## 95 percent confidence interval:
+##  0.4928415 1.0000000
+## sample estimates:
+## probability of success 
+##                   0.58
+```
+
+Hands down, we have all done something like that at some point! 
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## The Infamous Loop
+
+**The Experienced User:**
+
+
+```r
+n &lt;- ncol(x)
+res &lt;- vector(mode = "list", length = nrow(x)) 
+# res &lt;- list()
+for(i in 1:nrow(x)){
+  k &lt;- sum(x[i,])
+  res[[i]] &lt;- binom.test(k, n, .5, "greater")
+}
+res[[1]]
+```
+
+```
+## 
+## 	Exact binomial test
+## 
+## data:  k and n
+## number of successes = 58, number of trials = 100, p-value = 0.06661
+## alternative hypothesis: true probability of success is greater than 0.5
+## 95 percent confidence interval:
+##  0.4928415 1.0000000
+## sample estimates:
+## probability of success 
+##                   0.58
+```
+
+Faster and more elegant. 
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Very R: Vectorization
+
+**The Expert:**
+
+- R is a very high-level language
+- Loops on R level call R functions repeatedly
+- **Vectorization** basically corresponds to low-level loop
+
+**Problem 1:** Not all functions are vectorized (for a reason).
+
+*Bad:*
+
+
+```r
+acc &lt;- numeric(nrow(x))
+for(i in 1:nrow(x)){
+  acc[i] &lt;- mean(as.numeric(x[i,]))
+}
+```
+
+*Better:*
+
+
+```r
+acc &lt;- rowMeans(x)
+```
+
+**Problem 2:** There is no `rowBinom.test()`...
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+class: heading,middle
+
+
+Vectorize with `Vectorize()` 
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Vectorize Your Own Functions
+
+To create our own vectorized function, we can use 
+
+
+```r
+function_name &lt;- Vectorize(function(arg1, arg2, arg3...){
+  
+  ...
+  
+}, c("arg1", "arg2"))
+```
+
+**Example:** 
+
+
+```r
+binom.test.vectorized &lt;- Vectorize(function(x, n, p, alternative, conf.level){
+  binom.test(x, n, p, alternative, conf.level)
+}, "x")
+
+rowBinom.test &lt;- function(x){
+  y &lt;- rowSums(x)
+  binom.test.vectorized(y, ncol(x), .5, "greater", .95)
+}
+```
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Vectorize Your Own Functions
+
+
+```r
+res &lt;- rowBinom.test(x)
+typeof(res); dim(res)
+```
+
+```
+## [1] "list"
+```
+
+```
+## [1]  9 10
+```
+
+The output is not too convenient, but we got what we wanted:
+
+
+```r
+tmp &lt;- res[,1]
+class(tmp) &lt;- "htest"
+print(tmp)
+```
+
+```
+## 
+## 	Exact binomial test
+## 
+## data:  x and n
+## number of successes = 58, number of trials = 100, p-value = 0.06661
+## alternative hypothesis: true probability of success is greater than 0.5
+## 95 percent confidence interval:
+##  0.4928415 1.0000000
+## sample estimates:
+## probability of success 
+##                   0.58
+```
+
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Vectorize Your Own Functions
+
+
+
+A much more realistic scenario: **Plotting functions**.
+
+**Example:** Plot marginal likelihood of simple normal-normal model.
+
+.pull-left[
+
+Model:
+
+`$$X|\mu \sim \text{Normal}(\mu, 1)\\
+\mu \sim \text{Normal}(a, b)$$`
+
+Marginal Likelihood:
+
+`$$\int_{-\infty}^{\infty}\dfrac{1}{\sqrt{2\pi}}\text{exp}\left(- \dfrac{(x-\mu)^2}{2} \right) \dfrac{1}{\sqrt{2\pi b}}\text{exp}\left(- \dfrac{(\mu-a)^2}{2b} \right)\ d\mu$$`
+]
+
+.pull-right[
+
+&lt;img src="Part2_Vectorization_Rcpp_files/figure-html/unnamed-chunk-12-1.png" style="display: block; margin: auto 0 auto auto;" /&gt;
+
+
+]
+
+**Your turn!**
+
+(Choose any values for a, b; e.g., 0, 1)
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+class: heading,middle
+
+
+Dreaded and Beautiful: `apply()` 
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## The apply() Family
+
+The general idea:
+
+
+.center[
+
+&lt;img src="images/apply.png", width="55%"&gt;
+
+
+]
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## The apply() Family: Overview
+
+
+```r
+# for matrices and arrays:
+?apply
+
+# for lists and vectors (differ in the type of output):
+?lapply # l = "list"
+?sapply # s = "simplify"
+?vapply # v = "vector" (robust output)
+
+# other apply functions:
+?mapply    # multiple arguments
+?replicate # repeated evaluation of expr
+?tapply    # summary statistics split by factor(s)
+?aggregate # aggregate to summary statistic split by factor(s)
+
+...
+```
+
+Many have wasted more time trying to get an `apply()` function to work than they saved by actually using it.
+
+Once you know how to use them, they are beautiful.
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## apply()
+
+
+Apply function over elements in one dimension of an array:
+
+
+```r
+apply(X,       # the array (matrix) to which FUN is applied
+      MARGIN,  # dimensions to which FUN is applied
+      FUN)     # function to apply
+```
+
+Note: `MARGIN` denotes those dimensions *which FUN takes as argument*:
+
+- MARGIN = 1: function is applied to each row
+- MARGIN = 2: function is applied to each column
+- ...
+
+Can we use `apply()` to identify cases to exclude?
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## apply(): Example
+
+Of course, we can.
+
+But we need a suitable function. `binom.test()` doesn't work with response vectors.
+
+
+```r
+new_binom_test &lt;- function(x, p, alternative, conf.level){
+  y &lt;- sum(x)
+  n &lt;- length(x)
+  binom.test(y, n, p, alternative, conf.level)
+}
+```
+
+This one we can `apply()` to our data frame:
+
+
+```r
+res &lt;- apply(x, 1, new_binom_test, .5, "greater", .95)
+res[[1]]
+```
+
+```
+## 
+## 	Exact binomial test
+## 
+## data:  y and n
+## number of successes = 58, number of trials = 100, p-value = 0.06661
+## alternative hypothesis: true probability of success is greater than 0.5
+## 95 percent confidence interval:
+##  0.4928415 1.0000000
+## sample estimates:
+## probability of success 
+##                   0.58
+```
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Wait a Minute...
+
+Did `apply()` really help us? 
+
+If we have to manually inspect each individual result, we could've gone with the novice's solution.
+
+Is there a nice and efficient way to extract each individual's *p*-value from our list of results (`res`)?
+
+**Your turn:**
+
+Create a vector that contains all *p*-values.
+
+*Hint:* Everything that happens in `R` is a function. Really, everything:
+
+
+```r
+`+`(1, 1)
+```
+
+```
+## [1] 2
+```
+
+```r
+`&lt;-`(a, "Hello"); print(a)
+```
+
+```
+## [1] "Hello"
+```
+
+```r
+`[`(x, , 1)
+```
+
+```
+##  [1] 0 0 1 1 0 0 0 0 0 1
+```
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+class: heading,middle
+
+
+`apply()`'s Powerful Sister
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## The `plyr` Package
+
+Even more efficient and extremely elegant alternative to the `apply` family: The `plyr` package
+
+Each function is named according to the structure they accept (*split*) and that which they return (*combine*):
+
+- **a**: array
+- **l**: list
+- **d**: data.frame
+- **m**: multiple inputs
+- **r**: repeat
+- _: nothing
+
+
+```r
+ldply() # accepts a list, returns a data.frame
+maply() # accepts multiple args, returns an array
+...
+```
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Why `__ply()`?
+
+Very much unlike the `apply()` family, the functions are consistent.
+
+**Input** and **Output** are clearly defined.
+
+They are **efficient and fast**.
+
+Offer nice options such as **progress bars** or **parallelization**.
+
+
+My favorite go-to **Example:** Combining multiple data files
+
+- We have 448 data sets from a simulation study (.RData files)
+- We want to read in the files and combine them into one big data frame
+- Obviously, we don't want to use a loop (that takes several minutes)
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## The `lapply()` Solution
+
+
+```r
+files &lt;- list.files(path = "Data/sprt/", pattern = "*.RData", full.names = TRUE)
+```
+
+We need a function that returns the data frame:
+
+
+```r
+load("x") # loads the file x, returns object's name
+get(x) # returns an object named x
+
+# Let's combine them
+get(load("x"))
+```
+
+Let's `lapply()` the function:
+
+
+```r
+data &lt;- lapply(files, function(x) get(load(x)))
+```
+
+Hm, a list of data frames... we need one last trick:
+
+
+```r
+data &lt;- do.call(rbind, data)
+```
+
+**Can you do it faster with `plyr`?**
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Parallelization
+
+One advantage of the ply() functions is the built-in parallelization option.
+
+That means that the iterated process is processed on multiple cores in parallel. 
+
+This is almost like splitting the process in little pieces and let distribute these pieces across multiple computers.
+
+To use parallelization, we need to **register a parallel backend**.
+
+
+```r
+library(doParallel)
+```
+
+One way to register a backend:
+
+
+```r
+cl &lt;- makeCluster(8)
+registerDoParallel(cl)
+```
+
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Parallelization: Example from the Field
+
+Consider this very simple problem: We want to perform a one-sided one-sample binomial test. Let's check if toast is really more likely to land on the butter side. Or cats to land on their feet...
+
+Turns out, an exact power analysis for a simple binomial test is not that simple. No analytical solution (only approximations).
+
+**Idea:** A power simulation:
+
+
+```r
+power_simulation &lt;- function(n, p1, p0, alpha, nRep) {
+  k &lt;- rbinom(nRep, n, p1)
+  p &lt;- pbinom(k-1, n, p0, lower.tail = FALSE)
+  mean(p &lt; alpha)
+}
+```
+
+Assume the following parameters:
+
+- p0 = .50
+- p1 = .55
+- n = 50, 55, 60, ..., 5000
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Parallelization: Example from the Field
+
+Let's compare different ways to do this simulation:
+
+
+
+
+```r
+ns &lt;- seq(50, 5000, 5)
+nRep &lt;- 10000
+
+timing &lt;- bench::mark(
+  loop = for(n in ns){power_simulation(n, .6, .5, .05, nRep)},
+  serial = sapply(ns, power_simulation, p1 = .6, p0 = .5, alpha = .05, nRep = nRep),
+  serial2 = laply(ns, .fun = power_simulation, p1 = .6, p0 = .5, alpha = .05, nRep = nRep),
+  parallel = laply(ns, .fun = power_simulation, p1 = .6, p0 = .5, alpha = .05, nRep = nRep, .parallel = TRUE),
+  check = F
+)
+```
+
+&lt;div data-pagedtable="false"&gt;
+  &lt;script data-pagedtable-source type="application/json"&gt;
+{"columns":[{"label":["expression"],"name":[1],"type":["list"],"align":["right"]},{"label":["min"],"name":[2],"type":["S3: bench_time"],"align":["right"]},{"label":["median"],"name":[3],"type":["S3: bench_time"],"align":["right"]},{"label":["itr/sec"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["mem_alloc"],"name":[5],"type":["S3: bench_bytes"],"align":["right"]},{"label":["gc/sec"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["n_itr"],"name":[7],"type":["int"],"align":["right"]},{"label":["n_gc"],"name":[8],"type":["dbl"],"align":["right"]}],"data":[{"1":"&lt;language&gt;","2":"4.928519","3":"4.928519","4":"0.2029007","5":"240594704","6":"1.0145035","7":"1","8":"5"},{"1":"&lt;language&gt;","2":"4.889914","3":"4.889914","4":"0.2045026","5":"240591528","6":"1.2270153","7":"1","8":"6"},{"1":"&lt;language&gt;","2":"5.061859","3":"5.061859","4":"0.1975559","5":"241041680","6":"1.1853353","7":"1","8":"6"},{"1":"&lt;language&gt;","2":"1.072003","3":"1.072003","4":"0.9328336","5":"41566976","6":"0.9328336","7":"1","8":"1"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  &lt;/script&gt;
+&lt;/div&gt;
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+class: heading,middle
+
+
+Back to the Roots: Using C++ in R
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## When Vectorization Fails
+
+Vectorization makes R code elegant and fast. When it's possible.
+
+Sometimes, expressions can't be vectorized. For example, when code relies on a previous result. Or when vectorization results in unnecessary operations.
+
+**Power Analysis Revisited:** Instead of a power simulation, we want to do an iterative search to find the smallest N for a binomial test that satisfies power requirements
+
+This search is along these lines:
+
+
+```r
+alpha; beta; p0; p1
+n &lt;- start_value
+
+while(b &gt; beta){
+  c &lt;- qbinom(1 - alpha, n, p0)
+  b &lt;- pbinom(c, n, p1)
+  n &lt;- n + 1
+}
+
+sample_size = n - 1
+crit_value = c + 1
+actual_beta = b
+```
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## A Vectorization Attempt
+
+"Iterative Search" is a clear indication for a loop. Depending on the hypotheses, good luck with that...
+
+`$$\mathcal H_0\!:\ p = .50\\ \mathcal H_1\!:\ p = .505\\$$`
+The required sample size for `\(\alpha\)` = `\(\beta\)` = .05 is `\(N = 108,339\)`. A loop might take ages in situations like these.
+
+The problem is simple to address with vectorization:
+
+
+```r
+pwr_binom_r &lt;- function (p0, p1, alpha, beta, nlow=1, nup=1000){
+  n &lt;- nlow:nup
+  crit &lt;- qbinom(1 - alpha, n, p0)
+  b &lt;- pbinom(crit, n, p1)
+  i &lt;- which.max(b &lt;= beta)
+  return(c(n[i], crit[i]+1))
+}
+```
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## The Pitfall of Vectorization
+
+In my vectorized function, I have to define the vector over which the search will be conducted. 
+
+If the vector doesn't include the correct value, it cannot be found.
+
+The larger my search grid gets, the less efficient is my function. 
+
+A loop can stop as soon as it finds the correct value. A vectorized function can't. 
+
+**Solution:** Implement search algorithm directly in C++
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Using C++ in R
+
+The implementation of C++ in R is straightforward with the following package:
+
+
+```r
+library(Rcpp)
+```
+
+With this package, we can directly create C++ function from within our R script.
+
+
+```r
+cppFunction('String cpp_demo() {
+  return "Hello World!";
+}')
+```
+
+Not a particularly useful function, but it works:
+
+```r
+cpp_demo()
+```
+
+```
+## [1] "Hello World!"
+```
+
+The function is now available from the Global Environment.
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Some C++ Basics
+
+Making you C++ experts is beyond the scope of this workshop (and my C++ skills), but a few basics (and differences between C++ and R) are useful to remember:
+
+- 
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"ratio": "16:9",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
