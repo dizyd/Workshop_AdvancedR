@@ -59,7 +59,7 @@ bench::mark(
 
 # 2. Mean            --------------------------------------------------------------------
 
-# 1) Write a Rcpp-function which calculates the sum of a vector
+# 1) Write a Rcpp-function which calculates the mean of a vector
 
 cppFunction('double meanC(NumericVector x) {
   int n       = x.size();
@@ -96,7 +96,7 @@ mean_for_r <- function(x){
   return(m)
 }
 
-# 2) compare your Rcpp Sum function to the following R-functions
+# 2) compare your Rcpp Mean function to the following R-functions
 
 x <- runif(1e6)
 
