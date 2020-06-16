@@ -1,7 +1,5 @@
 library(tidyverse)
 library(tictoc)
-library(microbenchmark)
-library(benchmarkme)
 library(bench)
 library(data.table)
 
@@ -52,7 +50,7 @@ bench::mark(
 )
 
 
-# but not try the same with the last column
+# but now try the same with the last column
 
 bench::mark(
   "[2, 5]"           = iris[2, 5],
@@ -262,8 +260,9 @@ bench::mark(
 )
 
 
+
 larger_df <- df %>% slice(rep(row_number(), 100))
-larger_dt <- data.table(largeChickens)
+larger_dt <- data.table(larger_df)
 
 
 
@@ -276,7 +275,7 @@ bench::mark(
 
 
 large_df <- df %>% slice(rep(row_number(), 70000))
-large_dt <- data.table(largeChickens)
+large_dt <- data.table(large_df)
 
 
 

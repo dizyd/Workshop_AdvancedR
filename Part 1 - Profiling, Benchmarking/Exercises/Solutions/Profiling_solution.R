@@ -27,23 +27,42 @@ old <- function(){
 
 profvis({
   
-  old
+  old()
   
 })
 
 
 your_function <- function(){
   
+  temp <- matrix(rnorm(4e5 * 100, mean = 5), ncol = 100) ##
+  
+  # Get column means
+  means <- colMeans(temp) 
+  
+  # Subtract mean from each column
+  for (i in 1:length(means)) {
+    temp[, i] <- temp[, i] - means[i]
+  }
 
   
 }
 
+
+profvis({
+  
+  your_function()
+  
+})
 
 
 bench::mark(
   "old" = old(),
   "yours" = your_function()
 )
+
+
+
+
 
 
 
@@ -59,25 +78,22 @@ make_data   <- function(){
   y      <- 100 + 5 * x1 + 8 * x2
   y_hat  <- 100 + 5 * x1 + 8 * x2 + e
 
- df=data.frame(y_hat,y,x1,x2)
+ m=cbind(y_hat,y,x1,x2)
  
- df
+ m
   
 }
 
-center_data <- function(df){
+center_data <- function(m){
   
-  meanX1 <- mean(df[,3])
-  meanX2 <- mean(df[,4])
+  meanX1 <- mean(m[,3])
+  meanX2 <- mean(m[,4])
   
-  for(i in 1:nrow(df)){
-    
-    df$x1[i] <- df$x1[i]-meanX1
-    df$x2[i] <- df$x2[i]-meanX1
   
-  }
+  m[,3] <- m[,3]-mean(m[,3])
+  m[,4] <- m[,4]-mean(m[,4])
   
-  df
+  as.data.frame(m)
   
 }
 

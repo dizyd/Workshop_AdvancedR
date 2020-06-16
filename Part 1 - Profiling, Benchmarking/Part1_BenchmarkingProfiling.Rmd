@@ -1,8 +1,8 @@
 ---
 title: "Advanced R"
 subtitle: "Writing Faster R Code"
-author: "David Izydorczyk"
-date: "12.05.2020"
+author: "Dr. Martin Schnürch & David Izydorczyk"
+date: "17.06.2020"
 output:
   xaringan::moon_reader:
     lib_dir: libs
@@ -32,8 +32,8 @@ library(kableExtra)
 This workshop consists of three parts:
 
 1. Benchmarking &  Profiling
-2. Introduction to Vectorization & the Power of C++ with Rcpp
-3. Introduction to Parallelization
+2. Introduction to Vectorization & the Power of C++ with `Rcpp`
+3. Introduction to Parallelization with `foreach()`
 
 <!-- *********** NEW SLIDE ************** -->
 ---
@@ -304,6 +304,7 @@ Comparing different functions with `tic()-toc()` or `system.time()` can be annoy
 
 ```{r}
 
+m <- matrix(1:4e5,ncol=1000)
 
 tic("rowsums")
  x <- rowSums(m)
@@ -489,6 +490,8 @@ res <- bench::mark(
 
 ```
 
+--
+
 Better:
 
 ```{r eval=FALSE}
@@ -608,7 +611,7 @@ for_preset <- function(n){
 
 ]
 
-
+-- 
 
 ```{r}
 res <- bench::mark(
@@ -628,6 +631,8 @@ res[,1:8] %>% kable(.,format="markdown")
 x       <- data.frame(matrix(runif(100 * 1e4), ncol = 100))
 medians <- apply(x, 2 ,median)
 ```
+
+--
 
 .pull-left[
 
@@ -894,8 +899,8 @@ profvis({
 
 
 - Open the file `Profiling_exercises.R` in the `Exercise` folder.
-- There two exercises. 
-- Use `profvis` on the functions of the exercises and try to find potential bottlenecks  make them faster.
+- There are two exercises. 
+- Use `profvis` on the functions of the exercises. Try to find the (greatest) bottlenecks  and try to solve them.
 
 
 

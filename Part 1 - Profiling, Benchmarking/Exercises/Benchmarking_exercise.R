@@ -239,7 +239,7 @@ fun_data.table <- function(dt){
 
 
 larger_df <- df %>% slice(rep(row_number(), 100))
-larger_dt <- data.table(largeChickens)
+larger_dt <- data.table(larger_df)
 
 
 
@@ -249,8 +249,20 @@ larger_dt <- data.table(largeChickens)
 # What happens when you have a lot more data ? 
 
 
+# This might take a little bit longer (~1min)
 
 
+large_df <- df %>% slice(rep(row_number(), 70000))
+large_dt <- data.table(large_df)
+
+
+
+bench::mark(
+  "base"       = fun_base(large_df),
+  "dplyr"      = fun_dplyr(large_df),
+  "data.table" = fun_data.table(large_dt),
+  check        = FALSE
+)
 
 
 

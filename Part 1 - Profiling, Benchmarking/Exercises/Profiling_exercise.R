@@ -72,8 +72,8 @@ center_data <- function(df){
   
   for(i in 1:nrow(df)){
     
-    df$x1[i] <- df$x1[i]-meanX1
-    df$x2[i] <- df$x2[i]-meanX1
+    df[i,3] <- df[i,3]-meanX1
+    df[i,4] <- df[i,4]-meanX2
   
   }
   
@@ -125,4 +125,4 @@ bench::mark(
 # Original: 
 
 #    expression      min     median  `itr/sec`  mem_alloc                
-# sim(nreps = 100)  325ms    329ms     3.05    40.7MB 
+# sim(nreps = 100)  1.14s    1.22s     0.705    40.7MB 
