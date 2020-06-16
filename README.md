@@ -22,7 +22,7 @@ if(length(new.packages)) install.packages(new.packages,dependencies = TRUE)
 sapply(wanted.packages, require, character.only = TRUE)
 ```
 
-You should also install Rtools (Windows), see [here](https://cran.r-project.org/bin/windows/Rtools/) or [here](https://www.rdocumentation.org/packages/installr/versions/0.22.0/topics/install.Rtools), or Xcodes (Mac), see [here](https://www.r-bloggers.com/installing-r-on-os-x/) (scroll down)
+You should also install Rtools (Windows), see [here](https://cran.r-project.org/bin/windows/Rtools/) or [here](https://www.rdocumentation.org/packages/installr/versions/0.22.0/topics/install.Rtools), or Xcode (Mac), see [here](https://apps.apple.com/us/app/xcode/id497799835?mt=12) and [here](https://www.r-bloggers.com/installing-r-on-os-x/) (scroll down) for instructions.
 
 
 
