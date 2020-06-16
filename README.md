@@ -12,7 +12,7 @@ The workshop consists of three parts:
 The following code can be used to install the packages used in this workshop:
 
 ```r
-wanted.packages <- c("tidyverse","devtools","tictoc","benchmarkme","bench","data.table","foreach","doSNOW","Rcpp")
+wanted.packages <- c("tidyverse","devtools","tictoc","benchmarkme","bench","data.table","foreach","doSNOW","Rcpp","doParallel","plyr")
   
 # Check what packages need to be installed
 new.packages <- wanted.packages[!(wanted.packages %in% installed.packages()[,"Package"])]
@@ -22,11 +22,9 @@ if(length(new.packages)) install.packages(new.packages,dependencies = TRUE)
 sapply(wanted.packages, require, character.only = TRUE)
 ```
 
-You should also install Rtools
+You should also install Rtools (Windows), see [here](https://cran.r-project.org/bin/windows/Rtools/) or [here](https://www.rdocumentation.org/packages/installr/versions/0.22.0/topics/install.Rtools), or Xcodes (Mac), see [here](https://www.r-bloggers.com/installing-r-on-os-x/) (scroll down)
 
-see https://cran.r-project.org/bin/windows/Rtools/ 
 
-or https://www.rdocumentation.org/packages/installr/versions/0.22.0/topics/install.Rtools
 
 
 
