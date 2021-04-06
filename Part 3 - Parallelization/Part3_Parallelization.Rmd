@@ -2,7 +2,7 @@
 title: "Advanced R"
 subtitle: "Writing Faster R Code"
 author: "Martin Schnuerch & David Izydorczyk"
-date: "17.06.2020"
+date: "09.04.2020"
 output:
   xaringan::moon_reader:
     lib_dir: libs
@@ -35,14 +35,35 @@ class: heading,middle
 Part 3: Parallelization with `foreach`
 
 
+<!-- *********** NEW SLIDE ************** -->
+---
+## Parallelization in R
+
+In R many packages and functions have inbuilt parallelization capabilities, for instance:
+
+- [`multidplyr`](https://github.com/tidyverse/multidplyr) for dplyr operations (`summarize()`, `mutate()`, `filter()`, `select()`)
+
+- [`mclapply()`](https://bookdown.org/rdpeng/rprogdatascience/parallel-computation.html) function from the `parallel`- package, which is analogous to `lapply`, but distributes the tasks to multiple processors
+
+- `method = "parallel"` when using `run.jags()`
+
+- something somehow in STAN, e.g. [`map_rect`](https://github.com/rmcelreath/cmdstan_map_rect_tutorial) 
+
+- `multicore` argument in the [`MPTinR`](https://cran.r-project.org/web/packages/MPTinR/MPTinR.pdf) package (parallelization over participants or optim runs) 
+
+<br>
+
+However, here we focus on the *by-hands* parallelization with `foreach()`.
 
 <!-- *********** NEW SLIDE ************** -->
 ---
 ## foreach
 
 - `foreach` is like a for loop, but is implemented using a binary operator, called `%do%`.
-- The main difference between `foreach` and an old boring for loop is that it returns a value (you can also specify the output format)
-- ! `i = 1:5` instead of `i in 1:5`
+- The main difference between `foreach` and an old boring for loop is:
+    - that it returns a value (and you can also specify the output format)
+    - specifying the iterator via `i = 1:5` instead of `i in 1:5`
+    - adding `%do%`/`%dopar%`
 
 .pull-left[
 
@@ -202,13 +223,17 @@ Cores             |  10 reps  |  1,000 reps  |   10,000 reps  |  100,000 reps |
 ---
 ## Foreach
 
-Each iteration should execute computationally-intensive work. Scheduling tasks has overhead, and can exceed the time to complete the work itself for small jobs.
+What do make of this ? 
+
+- Each iteration should execute computationally-intensive work. 
+- Scheduling tasks has overhead, and can exceed the time to complete the work itself for small jobs.
+- More cores is not always better, depends on combination of the task & number of repetitions ([**Amdahl's law**](https://en.wikipedia.org/wiki/Amdahl%27s_law))
 
 <!-- *********** NEW SLIDE ************** -->
 ---
 ## Adding a progress bar
 
-You can also add a progress bar (very useful)
+You can also add a progress bar (very useful!)
 
 ```{r eval=FALSE}
 iterations <- 8
@@ -322,13 +347,27 @@ stopCluster(cl)
 
 
 
+
+
 <!-- *********** NEW SLIDE ************** -->
 ---
 ## Your turn !
 
-- Open the file `foreach_exercise.R`
-- There you find a function to compute the power of a t-test via simulation using two for-loops
-- Your task is it to make the same function with `foreach`
+- Write two functions, one using the usual `for`-loops and one using `foreach`, each doing a power analysis simulation for a two samples independent t-test (see the function skeletons in the `foreach_exericse.R`-file).
+
+For this power analysis, you have to iterate over different sample sizes and effect sizes, e.g.:
+
+
+```{r eval = FALSE}
+  design <- expand.grid("n" = c(5,10,30,100,400),
+                        "d" = c(0,0.2,0.4,0.8))
+```
+
+and then simulate data and run the test for a large number of repetitions (`n_rep = 1000`).
+
+
+
+- Write and test both functions and then compare them via `bench::mark()`
 
 
 
