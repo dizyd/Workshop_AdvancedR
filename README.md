@@ -1,6 +1,8 @@
-# Workshop: Advanced R
+# Workshop: Advanced Topics in R
 
-This repository contains the materials for the workshop **Advanced R** at the SMiP graduate school in Mannheim, Germany. 
+This repository contains materials for the workshop **Advanced Topics in R**, offered by the Research Training Group "Statistical Modeling in Psychology" (SMiP). 
+
+Instructors: Martin Schnuerch & David Izydorczyk
 
 The workshop consists of three parts:
 
@@ -12,7 +14,7 @@ The workshop consists of three parts:
 The following code can be used to install the packages used in this workshop:
 
 ```r
-wanted.packages <- c("tidyverse","devtools","tictoc","benchmarkme","bench","data.table","foreach","doSNOW","Rcpp","doParallel","plyr")
+wanted.packages <- c("plyr", "tidyverse", "devtools", "tictoc", "benchmarkme", "bench", "data.table", "foreach", "doSNOW", "Rcpp", "doParallel")
   
 # Check what packages need to be installed
 new.packages <- wanted.packages[!(wanted.packages %in% installed.packages()[,"Package"])]
@@ -28,5 +30,5 @@ You should also install Rtools (Windows), see [here](https://cran.r-project.org/
 
 
 
-**Note:** The workshop is based on R 4.0.0. 
+**Note:** The workshop is based on R 4.0.5. 
 
