@@ -1,5 +1,5 @@
 ---
-title: "Advanced R"
+title: "Advanced Topics in R"
 subtitle: "Writing Faster R Code"
 author: "Martin Schnuerch & David Izydorczyk"
 date: "April 9, 2021"
@@ -74,7 +74,7 @@ At the end of this workshop, you should ...
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Some thoughts about optimization
+## Some Thoughts about Optimization
 
 - Can *save* a lot of time, but also *waste* a lot of time
 
@@ -117,7 +117,7 @@ Tip 1: Check your Hardware
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Think about your hardware
+## Think about your Hardware
 
 <br>
 
@@ -127,7 +127,7 @@ Tip 1: Check your Hardware
 
 <br>
 
-**Is your computer up-to-date?**
+**Is your Computer up-to-date?**
 
 <!-- *********** NEW SLIDE ************** -->
 ---
@@ -330,7 +330,7 @@ toc()
 <!-- *********** NEW SLIDE ************** -->
 ---
 class:small
-## Comparing expressions
+## Comparing Expressions
 
 Comparing different expressions with `tic() - toc()` is rather inconvenient:
 
@@ -386,7 +386,7 @@ tapply(time, fn, median)
 <!-- *********** NEW SLIDE ************** -->
 ---
 class:small
-## Comparing functions with bench::mark()
+## Comparing Expressions with bench::mark()
 
 A better way: Use [`bench::mark()`](https://github.com/r-lib/bench)  (or `microbenchmark`)
 
@@ -417,7 +417,7 @@ res[, 1:8] %>% kable(.,format="markdown",digits = 2)
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Comparing functions with bench::mark()
+## Comparing Expressions with bench::mark()
 
 Example: Lets compare four ways to compute the row means of a large data frame
 
@@ -469,7 +469,7 @@ fun_for <- function(m) {
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Comparing functions with bench::mark()
+## Comparing Expressions with bench::mark()
 
 ```{r}
 library(bench)
@@ -489,14 +489,14 @@ res <- bench::mark(
 
 Results:
 
-```{r, echo=T}
-res[,1:8] %>% kable(.,format="markdown",digits = 2)
+```{r, echo=F}
+res[,1:8] %>% kable(format="markdown",digits = 2)
 ```
 
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Comparing functions with bench::mark()
+## Comparing Expressions with bench::mark()
 
 We can also visualize the results:
 
@@ -514,7 +514,7 @@ plot(res) + theme_bw() + theme(legend.position = "none")
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Comparing functions with bench::mark()
+## Comparing Expressions with bench::mark()
 
 You can also customize the function:
 
@@ -535,7 +535,7 @@ res <- bench::mark(
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Comparing functions with bench::mark()
+## Comparing Expressions with bench::mark()
 
 What is happening here?
 
@@ -570,9 +570,9 @@ res <- bench::mark(
 <!-- *********** NEW SLIDE ************** -->
 ---
 class:small
-## Comparing functions with bench::mark()
+## Comparing Expressions with bench::press()
 
-You want to compare your functions for different parameters ? `bench::press()` !
+To compare your functions for different parameters, you can use `bench::press()`:
 
 
 .pull-left[
@@ -620,7 +620,7 @@ plot(results) + theme_bw()
 ---
 class: heading,middle
 
-Tip 3: Memory is not only a psych topic
+Tip 3: Memory is not only a Psych Topic
 
 <!-- *********** NEW SLIDE ************** -->
 ---
@@ -638,7 +638,7 @@ Tip 3: Memory is not only a psych topic
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Example: Growing vectors inside loops
+## Example: Growing Vectors Inside Loops
 
 
 .pull-left[
@@ -687,7 +687,7 @@ res[,1:8] %>% kable(.,format="markdown")
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Example: Copying instead of Modifying
+## Example: Copying Instead of Modifying
 
 
 ```{r}
@@ -745,7 +745,7 @@ res[,1:8] %>% kable(.,format="markdown")
 <!-- *********** NEW SLIDE ************** -->
 ---
 class: small
-## Example: From the field
+## Example: From the Field
 
 
 
@@ -822,7 +822,7 @@ bnch[,1:8] %>% kable(.,format="markdown")
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Your turn !
+## Your Turn!
 
 
 - Open the file `Benchmarking_exercises.R` in the `Exercise` folder
@@ -839,11 +839,11 @@ bnch[,1:8] %>% kable(.,format="markdown")
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Take aways from the exercies
+## Insights from the Exercises
 
 1. Sometimes it's worth checking which function is faster when you have many possible alternatives
 
-2. If designing e.g. a simulation, it might be worth working with matrices and column-wise operations
+2. When designing e.g. a simulation, it might be worth working with matrices and column-wise operations
 
 3. Sometimes faster functions are harder to read
 
@@ -863,7 +863,7 @@ Tip 5: All Hail Google
 <!-- *********** NEW SLIDE ************** -->
 ---
 class: small
-## Finder Pre-Existing Faster Alternatives
+## Finding Pre-Existing Faster Alternatives
 
 Sometimes there may be already faster alternatives for some of the functions you are using, e.g.  [`speedlm`](https://cran.r-project.org/web/packages/speedglm/speedglm.pdf) instead of `lm`
 
@@ -914,12 +914,12 @@ results[,1:8] %>% kable(.,format="markdown")
 ---
 class: heading,middle
 
-Tip 6: Profile your code 
+Tip 6: Profile your Code 
 
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Profiling your R functions with profvis
+## Profiling your R Functions with `profvis`
 
 - Often you don't know what parts of your function might be slow
 
@@ -948,7 +948,7 @@ profvis({
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Profiling your R functions with profvis
+## .
 
 ```{r echo=FALSE}
 library(profvis)
@@ -972,7 +972,7 @@ profvis({
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Your turn !
+## Your Turn!
 
 
 - Open the file `Profiling_exercises.R` in the `Exercise` folder.
@@ -985,7 +985,7 @@ profvis({
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Helpful references:
+## Helpful References:
 
 - http://adv-r.had.co.nz/
 
