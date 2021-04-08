@@ -1,26 +1,27 @@
 <!DOCTYPE html>
 <html lang="" xml:lang="">
   <head>
-    <title>Advanced R</title>
+    <title>Advanced Topics in R</title>
     <meta charset="utf-8" />
-    <meta name="author" content="David Izydorczyk &amp; Martin Schnuerch" />
+    <meta name="author" content="Martin Schnuerch &amp; David Izydorczyk" />
+    <meta name="date" content="2021-04-09" />
     <script src="libs/header-attrs/header-attrs.js"></script>
     <link href="libs/remark-css/default.css" rel="stylesheet" />
     <link href="libs/remark-css/default-fonts.css" rel="stylesheet" />
     <link href="libs/pagedtable/css/pagedtable.css" rel="stylesheet" />
     <script src="libs/pagedtable/js/pagedtable.js"></script>
-    <link rel="stylesheet" href="subfiles\my-theme.css" type="text/css" />
-    <link rel="stylesheet" href="subfiles\my-fonts.css" type="text/css" />
+    <link rel="stylesheet" href="subfiles/my-theme.css" type="text/css" />
+    <link rel="stylesheet" href="subfiles/my-fonts.css" type="text/css" />
     <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
   </head>
   <body>
     <textarea id="source">
 class: center, middle, inverse, title-slide
 
-# Advanced R
+# Advanced Topics in R
 ## Writing Faster R Code
-### David Izydorczyk &amp; Martin Schnuerch
-### 17.06.2020
+### Martin Schnuerch &amp; David Izydorczyk
+### April 9, 2021
 
 ---
 
@@ -30,24 +31,27 @@ class: center, middle, inverse, title-slide
 
 ## Remember the Risk of Optimization
 
-.pull-left[
+- Can *save* a lot of time, but also *waste* a lot of time
 
-- Can save a lot of time, but also can waste a lot of time
-
-- There is often no single-best solution
+- There is often no single best solution
 
 - Still often worth to profile your functions or simulation code
 
-
+.pull-left[
+&lt;center&gt;
+&lt;img src="images/automation.png", width="65%"&gt;
+&lt;/center&gt;
 ]
 .pull-right[
-
-&lt;img src="images/automation.png", width="55%"&gt;
-
-&lt;img src="images/efficiency.png", width="55%"&gt;
-
-from [xkcd](https://xkcd.com/)
+&lt;br&gt;
+&lt;center&gt;
+&lt;img src="images/efficiency.png", width="65%"&gt;
+&lt;/center&gt;
 ]
+
+&lt;br&gt; 
+
+Cartoons by [xkcd](https://xkcd.com/)
 
 
 
@@ -67,7 +71,7 @@ Many functions take vector input and return single result:
 
 
 ```r
-x &lt;- c(1,2,3,4,5,6)
+x &lt;- c(1, 2, 3, 4, 5, 6)
 mean(x)
 ```
 
@@ -185,7 +189,7 @@ Faster and more elegant.
 
 - R is a very high-level language
 - Loops on R level call R functions repeatedly
-- **Vectorization** basically corresponds to low-level loop
+- **Vectorization** corresponds to low-level loop
 
 **Problem 1:** Not all functions are vectorized (for a reason).
 
@@ -234,13 +238,13 @@ function_name &lt;- Vectorize(function(arg1, arg2, arg3...){
 
 
 ```r
-binom.test.vectorized &lt;- Vectorize(function(x, n, p, alternative, conf.level){
+binom_test_vectorized &lt;- Vectorize(function(x, n, p, alternative, conf.level){
   binom.test(x, n, p, alternative, conf.level)
 }, "x")
 
-rowBinom.test &lt;- function(x){
+rowBinom_test &lt;- function(x){
   y &lt;- rowSums(x)
-  binom.test.vectorized(y, ncol(x), .5, "greater", .95)
+  binom_test_vectorized(y, ncol(x), .5, "greater", .95)
 }
 ```
 
@@ -251,7 +255,7 @@ rowBinom.test &lt;- function(x){
 
 
 ```r
-res &lt;- rowBinom.test(x)
+res &lt;- rowBinom_test(x)
 typeof(res); dim(res)
 ```
 
@@ -267,9 +271,8 @@ The output is not too convenient, but we got what we wanted:
 
 
 ```r
-tmp &lt;- res[,1]
-class(tmp) &lt;- "htest"
-print(tmp)
+res &lt;- apply(res, 2, function(x) {class(x) &lt;- "htest"; return(x)})
+res[[1]]
 ```
 
 ```
@@ -287,12 +290,42 @@ print(tmp)
 ```
 
 
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Benchmarking Our Solutions
+
+
+```r
+# Wrap loop solution in function
+for_binom_test &lt;- function(x){
+  n &lt;- ncol(x)
+  res &lt;- vector(mode = "list", length = nrow(x)) 
+  for(i in 1:nrow(x)){
+    k &lt;- sum(x[i,])
+    res[[i]] &lt;- binom.test(k, n, .5, "greater")
+  }
+  res
+}
+
+# benchmark performance
+results &lt;- mark(
+  "for" = for_binom_test(x),
+  "vector" = rowBinom_test(x),
+  iterations = 100,
+  check = FALSE
+)
+```
+
+
+|expression |     min| median| itr/sec| mem_alloc| gc/sec| n_itr| n_gc|
+|:----------|-------:|------:|-------:|---------:|------:|-----:|----:|
+|for        | 10.29ms| 11.3ms|   88.06|   105.9KB|  13.16|    87|   13|
+|vector     |  1.07ms|  1.2ms|  807.31|    23.5KB|   8.15|    99|    1|
+
 
 &lt;!-- *********** HEADING ************** --&gt;
 ---
 ## Vectorize Your Own Functions
-
-
 
 A much more realistic scenario: **Plotting functions**.
 
@@ -312,7 +345,7 @@ Marginal Likelihood:
 
 .pull-right[
 
-&lt;img src="Part2_Vectorization_Rcpp_files/figure-html/unnamed-chunk-12-1.png" style="display: block; margin: auto 0 auto auto;" /&gt;
+&lt;img src="Part2_Vectorization_Rcpp_files/figure-html/unnamed-chunk-14-1.png" style="display: block; margin: auto 0 auto auto;" /&gt;
 
 
 ]
@@ -400,9 +433,7 @@ Can we use `apply()` to identify cases to exclude?
 ---
 ## apply(): Example
 
-Of course, we can.
-
-But we need a suitable function. `binom.test()` doesn't work with response vectors.
+First, we need a suitable function. `binom.test()` doesn't work with response vectors.
 
 
 ```r
@@ -438,9 +469,34 @@ res[[1]]
 
 &lt;!-- *********** HEADING ************** --&gt;
 ---
+## apply(): Benchmarking Revisited
+
+
+```r
+results &lt;- mark(
+  "for" = for_binom_test(x),
+  "vector" = rowBinom_test(x),
+  "apply" = apply(x, 1, new_binom_test, .5, "greater", .95),
+  iterations = 100,
+  check = FALSE
+)
+```
+
+
+|expression |     min|  median| itr/sec| mem_alloc| gc/sec| n_itr| n_gc|
+|:----------|-------:|-------:|-------:|---------:|------:|-----:|----:|
+|for        | 10.65ms| 11.48ms|   86.45|    67.3KB|  14.07|    86|   14|
+|vector     |  1.14ms|  1.33ms|  720.59|    10.9KB|  14.71|    98|    2|
+|apply      |   1.1ms|  1.22ms|  795.23|    30.4KB|   8.03|    99|    1|
+
+
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
 ## Wait a Minute...
 
-Did `apply()` really help us? 
+Did `apply()`/`Vectorize()` really help us? 
 
 If we have to manually inspect each individual result, we could've gone with the novice's solution.
 
@@ -483,13 +539,13 @@ Create a vector that contains all *p*-values.
 class: heading,middle
 
 
-`apply()`'s Powerful Sister
+`apply()`'s Powerful Sisters
 
 &lt;!-- *********** HEADING ************** --&gt;
 ---
 ## The `plyr` Package
 
-Even more efficient and extremely elegant alternative to the `apply` family: The `plyr` package
+Even more efficient and elegant alternative to the `apply` family: The `plyr` package
 
 Each function is named according to the structure they accept (*split*) and that which they return (*combine*):
 
@@ -567,13 +623,71 @@ data &lt;- do.call(rbind, data)
 
 &lt;!-- *********** HEADING ************** --&gt;
 ---
+## The `purrr` Package
+
+`plyr` has been retired for some time and replaced by two powerful successors:
+
+- `dplyr` (and `multidplyr`)
+- [`purrr`](https://github.com/tidyverse/purrr) 
+
+`purrr` contains the family of `map()` functions.
+
+They work in similar ways as `vapply()`:
+
+
+```r
+map(.x, .f) # takes vector x, returns a list
+map_lgl() # returns logical vector
+map_chr() # returns character vector
+```
+
+Like `l_ply()`, `map()` is faster and more convenient:
+
+```r
+map_df() # returns data frame
+map2_dbl(.x, .y, .f) # take arguments x and y, return double
+...
+```
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
+## Example Revisited with `purrr` 
+
+`purrr`'s main advantage: Consistent with the `tidyverse`:
+
+
+```r
+# Are you familiar with the pipe?
+f(x) == x %&gt;% f()
+```
+
+`purrr` has many convenient features for efficient statistical modeling:
+
+
+```r
+x %&gt;% 
+  array_branch(margin = 1) %&gt;%         # split array into list
+  map(new_binom_test,                  # apply .f to each element
+      p = .5, alternative = "greater", 
+      conf.level = .95) %&gt;% 
+  map_dbl("p.value")                   # extract elements by name
+```
+
+```
+##  [1] 0.0666053096 0.0966739522 0.0060164879 0.0008949652 0.0284439668
+##  [6] 0.0176001001 0.0008949652 0.1841008087 0.0966739522 0.0017588209
+```
+
+
+&lt;!-- *********** HEADING ************** --&gt;
+---
 ## Parallelization
 
 One advantage of the ply() functions is the built-in parallelization option.
 
 That means that the iterated process is processed on multiple cores in parallel. 
 
-This is almost like splitting the process in little pieces and let distribute these pieces across multiple computers.
+This is almost like splitting the process in little pieces and distributing these pieces across multiple computers.
 
 To use parallelization, we need to **register a parallel backend**.
 
@@ -634,22 +748,20 @@ nRep &lt;- 10000
 timing &lt;- bench::mark(
   loop = for(n in ns){power_simulation(n, .6, .5, .05, nRep)},
   serial = sapply(ns, power_simulation, p1 = .6, p0 = .5, alpha = .05, nRep = nRep),
-  serial2 = laply(ns, .fun = power_simulation, p1 = .6, p0 = .5, alpha = .05, nRep = nRep),
-  parallel = laply(ns, .fun = power_simulation, p1 = .6, p0 = .5, alpha = .05, nRep = nRep, .parallel = TRUE),
-  check = F
+  purrr = map_dbl(ns, power_simulation, p1 = .6, p0 = .5, alpha = .05, nRep = nRep),
+  parallel = laply(ns, .fun = power_simulation, p1 = .6, p0 = .5, alpha = .05, 
+                   nRep = nRep, .parallel = TRUE),
+  check = F, iterations = 10
 )
 ```
 
 
-```
-## # A tibble: 4 x 6
-##   expression      min   median `itr/sec` mem_alloc `gc/sec`
-##   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;
-## 1 loop          4.66s    4.66s     0.214   229.4MB    1.07 
-## 2 serial        4.68s    4.68s     0.214   229.4MB    1.28 
-## 3 serial2       4.65s    4.65s     0.215   229.9MB    1.29 
-## 4 parallel      1.04s    1.04s     0.959    39.6MB    0.959
-```
+|expression |   min| median| itr/sec| mem_alloc| gc/sec| n_itr| n_gc|
+|:----------|-----:|------:|-------:|---------:|------:|-----:|----:|
+|loop       | 4.84s|   4.9s|    0.20|   229.4MB|   1.17|    10|   57|
+|serial     | 4.87s|   4.9s|    0.20|   229.4MB|   1.16|    10|   57|
+|purrr      | 4.85s|  4.89s|    0.20|   229.4MB|   1.15|    10|   56|
+|parallel   | 1.03s|  1.03s|    0.96|    39.9MB|   1.64|    10|   17|
 
 
 &lt;!-- *********** HEADING ************** --&gt;
@@ -768,12 +880,15 @@ The function is now available from the Global Environment.
 Making you C++ experts is beyond the scope of this workshop (and my C++ skills), but a few basics (and differences between C++ and R) are useful to remember:
 
 - All statements end with `;` ("end of line")
+
 - When creating an object, we explicitly define its type (and it matters!)
     - `bool`; `LogicalVector` 
     - `int`; `IntegerVector`
     - `double`; `NumericVector`
     - `String`; `CharacterVector` 
+    
 - When creating a function, we don't need the assignment operator (`=`)
+
 - Vector indices start with 0!
 
 
@@ -813,7 +928,7 @@ Write the script in an editor that supports C++. RStudio, for example...
 
 &lt;!-- *********** HEADING ************** --&gt;
 ---
-## An example
+## An Example
 
 Let's create a simple function that creates an integer vector with defined end points:
 
@@ -872,9 +987,9 @@ timing[, 1:8]
 ## # A tibble: 3 x 6
 ##   expression      min   median `itr/sec` mem_alloc `gc/sec`
 ##   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;
-## 1 R                 0    200ns  4158004.        0B        0
-## 2 R2             22us   26.5us    35329.    19.7KB        0
-## 3 cpp           2.6us    3.2us   305241.      16KB        0
+## 1 R                 0    200ns  2955930.        0B        0
+## 2 R2           21.8us   29.2us    31419.    19.7KB        0
+## 3 cpp           3.9us    6.6us   132167.      16KB        0
 ```
 
 
@@ -947,8 +1062,8 @@ timing
 ## # A tibble: 2 x 6
 ##   expression      min   median `itr/sec` mem_alloc `gc/sec`
 ##   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;
-## 1 cpp           1.7ms    1.8ms     537.     2.49KB    0    
-## 2 R            16.4ms   17.8ms      55.3  356.72KB    0.446
+## 1 cpp          1.71ms   1.91ms     507.     2.49KB    0    
+## 2 R           17.37ms  18.93ms      52.4  356.72KB    0.423
 ```
 
 &lt;!-- *********** HEADING ************** --&gt;
@@ -957,10 +1072,10 @@ timing
 
 
 ```r
-autoplot(timing) + theme_bw() + theme(legend.position = "none")
+plot(timing) + theme_bw() + theme(legend.position = "none")
 ```
 
-&lt;img src="Part2_Vectorization_Rcpp_files/figure-html/unnamed-chunk-42-1.png" style="display: block; margin: auto;" /&gt;
+&lt;img src="Part2_Vectorization_Rcpp_files/figure-html/unnamed-chunk-50-1.png" style="display: block; margin: auto;" /&gt;
 
 
 &lt;!-- *********** HEADING ************** --&gt;

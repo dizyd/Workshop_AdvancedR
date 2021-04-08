@@ -1,8 +1,8 @@
 ---
-title: "Advanced R"
+title: "Advanced Topics in R"
 subtitle: "Writing Faster R Code"
-author: "David Izydorczyk & Martin Schnuerch"
-date: "17.06.2020"
+author: "Martin Schnuerch & David Izydorczyk"
+date: "April 9, 2021"
 output:
   xaringan::moon_reader:
     lib_dir: libs
@@ -22,6 +22,7 @@ options(htmltools.dir.version = FALSE)
 library(plyr)
 library(tidyverse)
 library(kableExtra)
+library(bench)
 library(doParallel)
 library(Rcpp)
 sourceCpp("subfiles/pwr_binom.cpp")
@@ -30,24 +31,27 @@ sourceCpp("subfiles/pwr_binom.cpp")
 
 ## Remember the Risk of Optimization
 
-.pull-left[
+- Can *save* a lot of time, but also *waste* a lot of time
 
-- Can save a lot of time, but also can waste a lot of time
-
-- There is often no single-best solution
+- There is often no single best solution
 
 - Still often worth to profile your functions or simulation code
 
-
+.pull-left[
+<center>
+<img src="images/automation.png", width="65%">
+</center>
 ]
 .pull-right[
-
-<img src="images/automation.png", width="55%">
-
-<img src="images/efficiency.png", width="55%">
-
-from [xkcd](https://xkcd.com/)
+<br>
+<center>
+<img src="images/efficiency.png", width="65%">
+</center>
 ]
+
+<br> 
+
+Cartoons by [xkcd](https://xkcd.com/)
 
 
 
@@ -66,7 +70,7 @@ Part 2: Vectorization &  Rcpp
 Many functions take vector input and return single result:
 
 ```{r}
-x <- c(1,2,3,4,5,6)
+x <- c(1, 2, 3, 4, 5, 6)
 mean(x)
 
 t.test(x)
@@ -139,7 +143,7 @@ Faster and more elegant.
 
 - R is a very high-level language
 - Loops on R level call R functions repeatedly
-- **Vectorization** basically corresponds to low-level loop
+- **Vectorization** corresponds to low-level loop
 
 **Problem 1:** Not all functions are vectorized (for a reason).
 
@@ -184,13 +188,13 @@ function_name <- Vectorize(function(arg1, arg2, arg3...){
 **Example:** 
 
 ```{r}
-binom.test.vectorized <- Vectorize(function(x, n, p, alternative, conf.level){
+binom_test_vectorized <- Vectorize(function(x, n, p, alternative, conf.level){
   binom.test(x, n, p, alternative, conf.level)
 }, "x")
 
-rowBinom.test <- function(x){
+rowBinom_test <- function(x){
   y <- rowSums(x)
-  binom.test.vectorized(y, ncol(x), .5, "greater", .95)
+  binom_test_vectorized(y, ncol(x), .5, "greater", .95)
 }
 ```
 
@@ -200,25 +204,51 @@ rowBinom.test <- function(x){
 ## Vectorize Your Own Functions
 
 ```{r}
-res <- rowBinom.test(x)
+res <- rowBinom_test(x)
 typeof(res); dim(res)
 ```
 
 The output is not too convenient, but we got what we wanted:
 
 ```{r}
-tmp <- res[,1]
-class(tmp) <- "htest"
-print(tmp)
+res <- apply(res, 2, function(x) {class(x) <- "htest"; return(x)})
+res[[1]]
 ```
 
+
+<!-- *********** HEADING ************** -->
+---
+## Benchmarking Our Solutions
+
+```{r}
+# Wrap loop solution in function
+for_binom_test <- function(x){
+  n <- ncol(x)
+  res <- vector(mode = "list", length = nrow(x)) 
+  for(i in 1:nrow(x)){
+    k <- sum(x[i,])
+    res[[i]] <- binom.test(k, n, .5, "greater")
+  }
+  res
+}
+
+# benchmark performance
+results <- mark(
+  "for" = for_binom_test(x),
+  "vector" = rowBinom_test(x),
+  iterations = 100,
+  check = FALSE
+)
+```
+
+```{r echo=FALSE}
+results[,1:8] %>% kable(.,format="markdown",digits = 2)
+```
 
 
 <!-- *********** HEADING ************** -->
 ---
 ## Vectorize Your Own Functions
-
-
 
 A much more realistic scenario: **Plotting functions**.
 
@@ -336,9 +366,7 @@ Can we use `apply()` to identify cases to exclude?
 ---
 ## apply(): Example
 
-Of course, we can.
-
-But we need a suitable function. `binom.test()` doesn't work with response vectors.
+First, we need a suitable function. `binom.test()` doesn't work with response vectors.
 
 ```{r}
 new_binom_test <- function(x, p, alternative, conf.level){
@@ -358,9 +386,30 @@ res[[1]]
 
 <!-- *********** HEADING ************** -->
 ---
+## apply(): Benchmarking Revisited
+
+```{r}
+results <- mark(
+  "for" = for_binom_test(x),
+  "vector" = rowBinom_test(x),
+  "apply" = apply(x, 1, new_binom_test, .5, "greater", .95),
+  iterations = 100,
+  check = FALSE
+)
+```
+
+```{r echo=FALSE}
+results[, 1:8] %>% kable(., format = "markdown", digits = 2)
+```
+
+
+
+
+<!-- *********** HEADING ************** -->
+---
 ## Wait a Minute...
 
-Did `apply()` really help us? 
+Did `apply()`/`Vectorize()` really help us? 
 
 If we have to manually inspect each individual result, we could've gone with the novice's solution.
 
@@ -384,13 +433,13 @@ Create a vector that contains all *p*-values.
 class: heading,middle
 
 
-`apply()`'s Powerful Sister
+`apply()`'s Powerful Sisters
 
 <!-- *********** HEADING ************** -->
 ---
 ## The `plyr` Package
 
-Even more efficient and extremely elegant alternative to the `apply` family: The `plyr` package
+Even more efficient and elegant alternative to the `apply` family: The `plyr` package
 
 Each function is named according to the structure they accept (*split*) and that which they return (*combine*):
 
@@ -463,13 +512,62 @@ data <- do.call(rbind, data)
 
 <!-- *********** HEADING ************** -->
 ---
+## The `purrr` Package
+
+`plyr` has been retired for some time and replaced by two powerful successors:
+
+- `dplyr` (and `multidplyr`)
+- [`purrr`](https://github.com/tidyverse/purrr) 
+
+`purrr` contains the family of `map()` functions.
+
+They work in similar ways as `vapply()`:
+
+```{r, eval=F}
+map(.x, .f) # takes vector x, returns a list
+map_lgl() # returns logical vector
+map_chr() # returns character vector
+``` 
+
+Like `l_ply()`, `map()` is faster and more convenient:
+```{r, eval=F}
+map_df() # returns data frame
+map2_dbl(.x, .y, .f) # take arguments x and y, return double
+...
+```
+
+<!-- *********** HEADING ************** -->
+---
+## Example Revisited with `purrr` 
+
+`purrr`'s main advantage: Consistent with the `tidyverse`:
+
+```{r, eval=F}
+# Are you familiar with the pipe?
+f(x) == x %>% f()
+```
+
+`purrr` has many convenient features for efficient statistical modeling:
+
+```{r}
+x %>% 
+  array_branch(margin = 1) %>%         # split array into list
+  map(new_binom_test,                  # apply .f to each element
+      p = .5, alternative = "greater", 
+      conf.level = .95) %>% 
+  map_dbl("p.value")                   # extract elements by name
+```
+
+
+<!-- *********** HEADING ************** -->
+---
 ## Parallelization
 
 One advantage of the ply() functions is the built-in parallelization option.
 
 That means that the iterated process is processed on multiple cores in parallel. 
 
-This is almost like splitting the process in little pieces and let distribute these pieces across multiple computers.
+This is almost like splitting the process in little pieces and distributing these pieces across multiple computers.
 
 To use parallelization, we need to **register a parallel backend**.
 
@@ -522,22 +620,23 @@ cl <- makeCluster(8)
 registerDoParallel(cl)
 ```
 
-```{r message = FALSE, warning=FALSE}
+```{r message = FALSE, warning=FALSE, cache=TRUE}
 ns <- seq(50, 5000, 5)
 nRep <- 10000
 
 timing <- bench::mark(
   loop = for(n in ns){power_simulation(n, .6, .5, .05, nRep)},
   serial = sapply(ns, power_simulation, p1 = .6, p0 = .5, alpha = .05, nRep = nRep),
-  serial2 = laply(ns, .fun = power_simulation, p1 = .6, p0 = .5, alpha = .05, nRep = nRep),
-  parallel = laply(ns, .fun = power_simulation, p1 = .6, p0 = .5, alpha = .05, nRep = nRep, .parallel = TRUE),
-  check = F
+  purrr = map_dbl(ns, power_simulation, p1 = .6, p0 = .5, alpha = .05, nRep = nRep),
+  parallel = laply(ns, .fun = power_simulation, p1 = .6, p0 = .5, alpha = .05, 
+                   nRep = nRep, .parallel = TRUE),
+  check = F, iterations = 10
 )
 ```
 
 ```{r echo=F}
 stopCluster(cl)
-timing[,1:8]
+timing[,1:8] %>%  kable(format = "markdown", digits = 2)
 ```
 
 
@@ -650,12 +749,15 @@ The function is now available from the Global Environment.
 Making you C++ experts is beyond the scope of this workshop (and my C++ skills), but a few basics (and differences between C++ and R) are useful to remember:
 
 - All statements end with `;` ("end of line")
+
 - When creating an object, we explicitly define its type (and it matters!)
     - `bool`; `LogicalVector` 
     - `int`; `IntegerVector`
     - `double`; `NumericVector`
     - `String`; `CharacterVector` 
+    
 - When creating a function, we don't need the assignment operator (`=`)
+
 - Vector indices start with 0!
 
 
@@ -694,7 +796,7 @@ Write the script in an editor that supports C++. RStudio, for example...
 
 <!-- *********** HEADING ************** -->
 ---
-## An example
+## An Example
 
 Let's create a simple function that creates an integer vector with defined end points:
 
@@ -809,7 +911,7 @@ timing
 ## Final Benchmarking
 
 ```{r fig.width=12, fig.asp = .6, fig.align="center"}
-autoplot(timing) + theme_bw() + theme(legend.position = "none")
+plot(timing) + theme_bw() + theme(legend.position = "none")
 ```
 
 
