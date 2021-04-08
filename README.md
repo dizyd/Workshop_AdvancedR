@@ -14,7 +14,8 @@ The workshop consists of three parts:
 The following code can be used to install the packages used in this workshop:
 
 ```r
-wanted.packages <- c("plyr", "tidyverse", "devtools", "tictoc", "benchmarkme", "bench", "data.table", "foreach", "doSNOW", "Rcpp", "doParallel")
+wanted.packages <- c("plyr", "tidyverse", "devtools", "tictoc", "benchmarkme", "bench", "data.table", 
+"profvis", "foreach", "doSNOW", "Rcpp", "doParallel")
   
 # Check what packages need to be installed
 new.packages <- wanted.packages[!(wanted.packages %in% installed.packages()[,"Package"])]
