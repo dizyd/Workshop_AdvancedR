@@ -1,8 +1,8 @@
 ---
-title: "Advanced R"
+title: "Advanced Topics in R"
 subtitle: "Writing Faster R Code"
-author: "Martin Schnuerch & David Izydorczyk"
-date: "09.04.2020"
+author: "David Izydorczyk & Martin Schnuerch"
+date: "April 9, 2021"
 output:
   xaringan::moon_reader:
     lib_dir: libs
@@ -57,7 +57,7 @@ However, here we focus on the *by-hands* parallelization with `foreach()`.
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## foreach
+## `foreach`
 
 - `foreach` is like a for loop, but is implemented using a binary operator, called `%do%`.
 - The main difference between `foreach` and an old boring for loop is:
@@ -106,7 +106,7 @@ foreach(i = 1:2,.combine = "+") %do% {
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## foreach
+## `foreach`
 
 - The real power of `foreach` is when you combine it with `doSNOW` (or `doParallel`)
 - The `doSNOW` package is a “parallel backend” for the `foreach` package
@@ -221,7 +221,7 @@ Cores             |  10 reps  |  1,000 reps  |   10,000 reps  |  100,000 reps |
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Foreach
+## `foreach`
 
 What do make of this ? 
 
@@ -231,7 +231,7 @@ What do make of this ?
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Adding a progress bar
+## Adding a Progress Bar
 
 You can also add a progress bar (very useful!)
 
@@ -268,7 +268,7 @@ stopCluster(cl)
 <!-- *********** NEW SLIDE ************** -->
 ---
 class:small
-## Nested foreach
+## Nested `foreach`
 
 
 - You can also use nested `foreach`-loops
@@ -314,7 +314,7 @@ stopCluster(cl)
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Rcpp in foreach
+## Rcpp in `foreach`
 
 - You can also use `Rcpp`-functions in `foreach`
 
@@ -351,7 +351,7 @@ stopCluster(cl)
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Your turn !
+## Your Turn!
 
 - Write two functions, one using the usual `for`-loops and one using `foreach`, each doing a power analysis simulation for a two samples independent t-test (see the function skeletons in the `foreach_exericse.R`-file).
 
@@ -376,7 +376,7 @@ and then simulate data and run the test for a large number of repetitions (`n_re
 
 <!-- *********** NEW SLIDE ************** -->
 ---
-## Helpful references:
+## Helpful References:
 
 - http://adv-r.had.co.nz/
 - [foreach intro](https://cran.r-project.org/web/packages/doParallel/vignettes/gettingstartedParallel.pdf)

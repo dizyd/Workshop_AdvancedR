@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="" xml:lang="">
   <head>
-    <title>Advanced R</title>
+    <title>Advanced Topics in R</title>
     <meta charset="utf-8" />
-    <meta name="author" content="Martin Schnuerch &amp; David Izydorczyk" />
+    <meta name="author" content="David Izydorczyk &amp; Martin Schnuerch" />
+    <meta name="date" content="2021-04-09" />
     <script src="libs/header-attrs/header-attrs.js"></script>
     <link href="libs/remark-css/default.css" rel="stylesheet" />
     <link href="libs/remark-css/default-fonts.css" rel="stylesheet" />
@@ -15,10 +16,10 @@
     <textarea id="source">
 class: center, middle, inverse, title-slide
 
-# Advanced R
+# Advanced Topics in R
 ## Writing Faster R Code
-### Martin Schnuerch &amp; David Izydorczyk
-### 09.04.2020
+### David Izydorczyk &amp; Martin Schnuerch
+### April 9, 2021
 
 ---
 
@@ -54,7 +55,7 @@ However, here we focus on the *by-hands* parallelization with `foreach()`.
 
 &lt;!-- *********** NEW SLIDE ************** --&gt;
 ---
-## foreach
+## `foreach`
 
 - `foreach` is like a for loop, but is implemented using a binary operator, called `%do%`.
 - The main difference between `foreach` and an old boring for loop is:
@@ -123,7 +124,7 @@ foreach(i = 1:2,.combine = "+") %do% {
 
 &lt;!-- *********** NEW SLIDE ************** --&gt;
 ---
-## foreach
+## `foreach`
 
 - The real power of `foreach` is when you combine it with `doSNOW` (or `doParallel`)
 - The `doSNOW` package is a “parallel backend” for the `foreach` package
@@ -239,7 +240,7 @@ Cores             |  10 reps  |  1,000 reps  |   10,000 reps  |  100,000 reps |
 
 &lt;!-- *********** NEW SLIDE ************** --&gt;
 ---
-## Foreach
+## `foreach`
 
 What do make of this ? 
 
@@ -249,7 +250,7 @@ What do make of this ?
 
 &lt;!-- *********** NEW SLIDE ************** --&gt;
 ---
-## Adding a progress bar
+## Adding a Progress Bar
 
 You can also add a progress bar (very useful!)
 
@@ -287,7 +288,7 @@ stopCluster(cl)
 &lt;!-- *********** NEW SLIDE ************** --&gt;
 ---
 class:small
-## Nested foreach
+## Nested `foreach`
 
 
 - You can also use nested `foreach`-loops
@@ -333,7 +334,7 @@ stopCluster(cl)
 
 &lt;!-- *********** NEW SLIDE ************** --&gt;
 ---
-## Rcpp in foreach
+## Rcpp in `foreach`
 
 - You can also use `Rcpp`-functions in `foreach`
 
@@ -367,7 +368,7 @@ stopCluster(cl)
 
 &lt;!-- *********** NEW SLIDE ************** --&gt;
 ---
-## Your turn !
+## Your Turn!
 
 - Write two functions, one using the usual `for`-loops and one using `foreach`, each doing a power analysis simulation for a two samples independent t-test (see the function skeletons in the `foreach_exericse.R`-file).
 
@@ -393,7 +394,7 @@ and then simulate data and run the test for a large number of repetitions (`n_re
 
 &lt;!-- *********** NEW SLIDE ************** --&gt;
 ---
-## Helpful references:
+## Helpful References:
 
 - http://adv-r.had.co.nz/
 - [foreach intro](https://cran.r-project.org/web/packages/doParallel/vignettes/gettingstartedParallel.pdf)
