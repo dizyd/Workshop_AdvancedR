@@ -86,12 +86,8 @@ make_data   <- function(){
 
 center_data <- function(m){
   
-  meanX1 <- mean(m[,3])
-  meanX2 <- mean(m[,4])
-  
-  
-  m[,3] <- m[,3]-mean(m[,3])
-  m[,4] <- m[,4]-mean(m[,4])
+  m[,3] <- scale(m[,3],scale=F)
+  m[,4] <- scale(m[,4],scale=F)
   
   as.data.frame(m)
   
